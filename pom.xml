@@ -25,6 +25,19 @@
       <version>3.1.1.GA</version>
       <scope>compile</scope>
     </dependency>
+	<dependency>
+		<groupId>junit</groupId>
+		<artifactId>junit</artifactId>
+		<version>4.5</version>
+	</dependency>
+	<dependency>
+		<groupId>Netty-Test</groupId>
+		<artifactId>Netty-Test</artifactId>
+		<version>3.1.1.GA</version>
+		<scope>system</scope>
+		<systemPath>D:\NEWJARS\Netty-Test.jar</systemPath>
+		<optional>true</optional>
+	</dependency>
   </dependencies>
   <properties>
   	<attach-distribution>false</attach-distribution>

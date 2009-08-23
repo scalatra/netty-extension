@@ -215,10 +215,12 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
 
     /**
      * Cleans the AggregateChannelBuffer by removing empty components and
-     * Optionally added a ChannelBuffer at the end
+     * Optionally added a ChannelBuffer at the end (if not null)
      * @param addedBuffer a new buffer added to the current one (may be null)
+     * @param addIndex start readerIndex for addedBuffer
+     * @param addLength length to be added from the addedBuffer to this one
      */
-    public void cleanChannelBuffer(ChannelBuffer addedBuffer, int addIndex,
+    private void cleanChannelBuffer(ChannelBuffer addedBuffer, int addIndex,
             int addLength) {
         ArrayList<ChannelBuffer> bufferList = getBufferList(this
                 .readerIndex(), this.writerIndex() - this.readerIndex());
