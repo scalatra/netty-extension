@@ -3,7 +3,7 @@
   <groupId>NettyExtension</groupId>
   <artifactId>NettyExtension</artifactId>
   <name>NettyExtension</name>
-  <version>3.1.2</version>
+  <version>1.0.0</version>
   <description>Netty Extension (handlers and others)</description>
   <url>http://openr66.free.fr/NettyExtension</url>
   <inceptionYear>2009</inceptionYear>
@@ -12,6 +12,55 @@
   	<developerConnection>scm:svn:https://goldengate.svn.sourceforge.net/svnroot/goldengate/NettyExtension/trunk</developerConnection>
   	<url>http://goldengate.svn.sourceforge.net/svnroot/goldengate/NettyExtension/trunk</url>
   </scm>
+  <organization>
+  	<name>Frederic Bregier</name>
+  	<url>http://frederic.bregier.free.fr</url>
+  </organization>
+  <developers>
+  	<developer>
+  		<name>Frederic Bregier</name>
+  		<id>openlsd</id>
+  		<roles>
+  			<role>Project Manager</role>
+  			<role>Architect</role>
+		</roles>
+  		<email>fredbregier at free.fr</email>
+  	</developer>
+  	<developer>
+  		<name>Frederic Bregier</name>
+  		<id>fredbregier</id>
+  		<roles>
+  			<role>Developer</role>
+		</roles>
+  		<email>fredbregier at free.fr</email>
+  	</developer>
+  </developers>
+  <issueManagement>
+  	<system>Sourceforge</system>
+  	<url>http://sourceforge.net/tracker/?group_id=254228/</url>
+  </issueManagement>
+  <mailingLists>
+  	<mailingList>
+  		<name>GoldenGate Devel mailing list (Prefered)</name>
+  		<subscribe>https://lists.sourceforge.net/lists/listinfo/goldengate-devel</subscribe>
+  		<post>goldengate-devel@lists.sourceforge.net</post>
+  		<archive>http://sourceforge.net/mailarchive/forum.php?forum_name=goldengate-devel</archive>
+  	</mailingList>
+  	<mailingList>
+  		<name>GoldenGate Help Forum</name>
+  		<archive>http://sourceforge.net/forum/forum.php?forum_id=921630</archive>
+  	</mailingList>
+  	<mailingList>
+  		<name>GoldenGate Open Discussion Forum</name>
+  		<archive>http://sourceforge.net/forum/forum.php?forum_id=921629</archive>
+  	</mailingList>
+  </mailingLists>
+  <licenses>
+  	<license>
+  		<name>LGPL 3.0</name>
+  		<url>LICENSE.txt</url>
+  	</license>
+  </licenses>
   <repositories>
   	<repository>
   		<id>jboss.releases</id>
