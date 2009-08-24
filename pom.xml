@@ -1,10 +1,17 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>Netty-Extension</groupId>
-  <artifactId>Netty-Extension</artifactId>
-  <name>Netty-Extension</name>
-  <version>3.2.0</version>
+  <groupId>NettyExtension</groupId>
+  <artifactId>NettyExtension</artifactId>
+  <name>NettyExtension</name>
+  <version>3.1.2</version>
   <description>Netty Extension (handlers and others)</description>
+  <url>http://openr66.free.fr/NettyExtension</url>
+  <inceptionYear>2009</inceptionYear>
+  <scm>
+  	<connection>scm:svn:http://goldengate.svn.sourceforge.net/svnroot/goldengate/NettyExtension/trunk</connection>
+  	<developerConnection>scm:svn:https://goldengate.svn.sourceforge.net/svnroot/goldengate/NettyExtension/trunk</developerConnection>
+  	<url>http://goldengate.svn.sourceforge.net/svnroot/goldengate/NettyExtension/trunk</url>
+  </scm>
   <repositories>
   	<repository>
   		<id>jboss.releases</id>
@@ -17,12 +24,23 @@
   			<enabled>false</enabled>
   		</snapshots>
   	</repository>
+  	<repository>
+  		<id>goldengate.releases</id>
+  		<name>GoldenGate releases</name>
+  		<url>http://openr66.free.fr/maven2</url>
+  		<releases>
+  			<enabled>true</enabled>
+  		</releases>
+  		<snapshots>
+  			<enabled>false</enabled>
+  		</snapshots>
+  	</repository>
   </repositories>
   <dependencies>
 	<dependency>
       <groupId>org.jboss.netty</groupId>
       <artifactId>netty</artifactId>
-      <version>3.1.1.GA</version>
+      <version>3.1.2.GA</version>
       <scope>compile</scope>
     </dependency>
 	<dependency>

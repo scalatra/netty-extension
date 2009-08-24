@@ -1,0 +1,17 @@
+Netty Extension
+
+  The Netty Extension project unifies some extenions to Netty that are needed by some GoldenGate projects.
+
+Dependency
+
+  It is based mainly on the NETTY framework (NIO great framework support at {{http://www.jboss.org/netty}}
+  and is tend to be really efficient, both in term of memory, threads and network bandwidth.
+
+Specificities
+
+  The Netty Extension project unifies some extenions to Netty that are needed by some GoldenGate projects.
+
+[images/goldengatesmall.jpg] GoldenGate Main Project Logo
+
+  See global GoldenGate project at {{http://openr66.free.fr/}}and particular GoldenGate Common page at
+  {{http://openr66.free.fr/NettyExtension.html}}

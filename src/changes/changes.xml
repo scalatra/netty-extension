@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<document>
+	<properties>
+		<title>Netty Extension</title>
+		<author email="fredbregier@free.fr">Frederic Bregier</author>
+	</properties>
+	<body>
+		<release version="1.0.0" date="2009-08-24" description="Netty Extension">
+			<action dev="Frederic Bregier" type="add">Group extensions to Netty in one project</action>
+		</release>
+	</body>
+</document>
