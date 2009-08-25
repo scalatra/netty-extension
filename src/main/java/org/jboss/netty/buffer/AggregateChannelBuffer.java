@@ -67,7 +67,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
             break;
         case 1:
             if (buffers[0].readable()) {
-                return new AggregateChannelBuffer(buffers);//wrappedCheckedBuffer(buffers[0]);
+                return new AggregateChannelBuffer(buffers);
             }
             break;
         default:
