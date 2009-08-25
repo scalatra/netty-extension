@@ -67,7 +67,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
             break;
         case 1:
             if (buffers[0].readable()) {
-                return wrappedCheckedBuffer(buffers[0]);
+                return new AggregateChannelBuffer(buffers);//wrappedCheckedBuffer(buffers[0]);
             }
             break;
         default:
@@ -87,7 +87,8 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
      */
     public static ChannelBuffer wrappedCheckedBuffer(ChannelBuffer buffer) {
         if (buffer.readable()) {
-            return buffer.slice();
+            ChannelBuffer [] buffers = {buffer};
+            return new AggregateChannelBuffer(buffers);//buffer.slice();
         } else {
             return ChannelBuffers.EMPTY_BUFFER;
         }
@@ -110,13 +111,14 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
                 if (buffer instanceof AggregateChannelBuffer) {
                     AggregateChannelBuffer aggregate = (AggregateChannelBuffer) buffer;
                     ArrayList<ChannelBuffer> subList = aggregate.getBufferList(
-                            aggregate.readerIndex(), aggregate.writerIndex() -
-                                    aggregate.readerIndex());
+                            aggregate.readerIndex(), aggregate.readableBytes());
                     bufferList.addAll(subList);
                     // now List contains all buffers from Aggregate
                 } else {
                     // not an aggregate one
-                    bufferList.add(buffer);
+                    ChannelBuffer other = buffer.slice(buffer.readerIndex(),
+                            buffer.readableBytes());
+                    bufferList.add(other);
                 }
             } else if (buffer.capacity() != 0) {
                 expectedEndianness = buffer.order();
@@ -127,14 +129,14 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
             throw new IllegalArgumentException(
                     "buffers have only empty buffers.");
         }
-        setFromList(bufferList, expectedEndianness);
+        setFromList(bufferList, expectedEndianness, 0);
     }
 
     /**
      *
      * @param index
      * @param length
-     * @return the list of valid buffers from index and length
+     * @return the list of valid buffers from index and length, slicing contents
      */
     private ArrayList<ChannelBuffer> getBufferList(int index, int length) {
         ArrayList<ChannelBuffer> bufferList = new ArrayList<ChannelBuffer>(
@@ -142,7 +144,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
         int localReaderIndex = index;
         int localWriterIndex = this.writerIndex();
         int sliceId = sliceId(localReaderIndex);
-        // some slices from sliceId must be keeped
+        // some slices from sliceId must be kept
         int maxlength = localWriterIndex - localReaderIndex;
         if (maxlength < length) {
             // too big
@@ -181,13 +183,15 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
      * Setup this ChannelBuffer from the list and the Endianness
      * @param listBuf
      * @param expectedEndianness
+     * @param startIndex start readerIndex to use (generally 0)
      */
     private void setFromList(ArrayList<ChannelBuffer> listBuf,
-            ByteOrder expectedEndianness) {
+            ByteOrder expectedEndianness, int startIndex) {
         int number = listBuf.size();
         if (number == 0) {
             order = expectedEndianness;
             slices = new ChannelBuffer[1];
+            // to prevent remove too early
             slices[0] = ChannelBuffers.EMPTY_BUFFER.slice();
             indices = new int[2];
             indices[1] = indices[0] + slices[0].capacity();
@@ -203,53 +207,22 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
                 throw new IllegalArgumentException(
                         "All buffers must have the same endianness.");
             }
-            slices[i] = buffer.slice();
+            slices[i] = buffer;
             i ++;
         }
         indices = new int[number + 1];
+        indices[0] = startIndex;
         for (i = 1; i <= number; i ++) {
             indices[i] = indices[i - 1] + slices[i - 1].capacity();
         }
         writerIndex(capacity());
     }
 
-    /**
-     * Cleans the AggregateChannelBuffer by removing empty components and
-     * Optionally added a ChannelBuffer at the end (if not null)
-     * @param addedBuffer a new buffer added to the current one (may be null)
-     * @param addIndex start readerIndex for addedBuffer
-     * @param addLength length to be added from the addedBuffer to this one
-     */
-    private void cleanChannelBuffer(ChannelBuffer addedBuffer, int addIndex,
-            int addLength) {
-        ArrayList<ChannelBuffer> bufferList = getBufferList(this
-                .readerIndex(), this.writerIndex() - this.readerIndex());
-        ByteOrder expectedEndianness = order;
-        if (addedBuffer != null && addedBuffer.readable()) {
-            if (capacity() > 0 && order != addedBuffer.order()) {
-                throw new IllegalArgumentException(
-                        "All buffers must have the same endianness.");
-            } else {
-                expectedEndianness = addedBuffer.order();
-            }
-            if (addedBuffer instanceof AggregateChannelBuffer) {
-                // first clean it
-                AggregateChannelBuffer subbuf = (AggregateChannelBuffer) addedBuffer;
-                ArrayList<ChannelBuffer> subList = subbuf.getBufferList(
-                        addIndex, addLength);
-                bufferList.addAll(subList);
-            } else {
-                bufferList.add(addedBuffer.slice(addIndex, addLength));
-            }
-        }
-        // now List contains all buffers from Aggregate
-        setFromList(bufferList, expectedEndianness);
-    }
-
     private AggregateChannelBuffer(AggregateChannelBuffer buffer) {
-        ArrayList<ChannelBuffer> bufferList = buffer.getBufferList(buffer
-                .readerIndex(), buffer.writerIndex() - buffer.readerIndex());
-        setFromList(bufferList, buffer.order());
+        order = buffer.order;
+        slices = buffer.slices.clone();
+        indices = buffer.indices.clone();
+        setIndex(buffer.readerIndex(), buffer.writerIndex());
     }
 
     /* (non-Javadoc)
@@ -257,8 +230,37 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
      */
     @Override
     public void writeBytes(ChannelBuffer src, int srcIndex, int length) {
-        // Note that there is no write ability by default, so only adding is possible
-        cleanChannelBuffer(src, srcIndex, length);
+        if (src.order() != order) {
+            throw new IllegalArgumentException(
+                    "All buffers must have the same endianness.");
+        }
+        if (src != null) {
+            // will write the given buffer from the previousWriterIndex
+            if (capacity() > 0 && order != src.order()) {
+                throw new IllegalArgumentException(
+                        "All buffers must have the same endianness.");
+            }
+            ArrayList<ChannelBuffer> bufferAddedList = new ArrayList<ChannelBuffer>(1);
+            if (src instanceof AggregateChannelBuffer) {
+                // first clean it
+                AggregateChannelBuffer subbuf = (AggregateChannelBuffer) src;
+                ArrayList<ChannelBuffer> subList = subbuf.getBufferList(
+                        srcIndex, length);
+                bufferAddedList.addAll(subList);
+            } else {
+                ChannelBuffer other = src.slice(srcIndex,
+                        length);
+                bufferAddedList.add(other);
+            }
+            int localWriterIndex = this.writerIndex();
+            for (ChannelBuffer buffer : bufferAddedList) {
+                int sublength = buffer.readableBytes();
+                setBytes(localWriterIndex, buffer, buffer.readerIndex(),
+                        sublength);
+                localWriterIndex += sublength;
+            }
+            this.writerIndex(localWriterIndex);
+        }
     }
 
     // under that point: similar implementation of CompositeChannelBuffer
@@ -759,8 +761,12 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
                 }
             }
         }
-
         throw new IndexOutOfBoundsException();
     }
 
+    public String toString() {
+        String result = super.toString();
+        result = result.substring(0, result.length()-1);
+        return result+", slices="+this.slices.length+")";
+    }
 }

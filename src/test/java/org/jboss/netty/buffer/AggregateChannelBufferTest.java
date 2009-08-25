@@ -45,17 +45,15 @@ import java.util.Map;
 import java.util.Map.Entry;
 
 import org.junit.Test;
+import org.junit.runner.JUnitCore;
+import org.junit.runner.Result;
+import org.junit.runner.notification.Failure;
 
 /**
  * @author frederic bregier
  *
  */
 public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
-    public static junit.framework.Test suite() {
-        return new junit.framework.JUnit4TestAdapter(AggregateChannelBufferTest.class);
-    }
-
-
     private List<ChannelBuffer> buffers;
     private ChannelBuffer buffer;
 
@@ -137,7 +135,7 @@ public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
     @Test
     public void testEquals() {
         ChannelBuffer a, b;
-      //FIXME
+        //XXX as normal buffers
         // Different length.
         a = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 1  }));
         b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 1, 2 }));
@@ -182,8 +180,12 @@ public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
         a = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }));
         b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 6, 7, 8, 5, 9, 10, 11 }, 1, 10));
         assertFalse(ChannelBuffers.equals(a, b));
+    }
 
-        // new tests with mixed type of buffer
+    @Test
+    public void testMixedBuffersEquals() {
+        ChannelBuffer a, b;
+        //XXX new tests with mixed type of buffer
         // Different length.
         a = wrappedBuffer(new byte[] { 1  });
         b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 1, 2 }));
@@ -228,8 +230,12 @@ public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
         a = wrappedBuffer(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
         b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 6, 7, 8, 5, 9, 10, 11 }, 1, 10));
         assertFalse(ChannelBuffers.equals(a, b));
+    }
 
-        // Same tests with several buffers in wrappedCheckedBuffer
+    @Test
+    public void testSeveralBuffersEquals() {
+        ChannelBuffer a, b;
+        //XXX Same tests with several buffers in wrappedCheckedBuffer
         // Different length.
         a = wrappedBuffer(new byte[] { 1  });
         b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 1 }),
@@ -284,7 +290,6 @@ public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
         b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 6, 7, 8, 5, 9, 10, 11 }, 1, 5),
                 wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 6, 7, 8, 5, 9, 10, 11 }, 6, 5));
         assertFalse(ChannelBuffers.equals(a, b));
-
     }
 
     @Test
@@ -372,6 +377,7 @@ public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
 
     @Test
     public void testWrappedCheckedBuffer() {
+
         assertEquals(16, wrappedCheckedBuffer(wrappedBuffer(ByteBuffer.allocateDirect(16))).capacity());
 
         assertEquals(
@@ -413,6 +419,208 @@ public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
     }
 
     @Test
+    public void testWrittentBuffersEquals() {
+        //XXX Same tests than testEquals with written AggregateChannelBuffers
+        ChannelBuffer a, b;
+        // Different length.
+        a = wrappedBuffer(new byte[] { 1  });
+        b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 1 }, new byte[1]));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-1);
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 2 }));
+        assertFalse(ChannelBuffers.equals(a, b));
+
+        // Same content, same firstIndex, short length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3 });
+        b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 1 }, new byte[2]));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-2);
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 2 }));
+        b.writeBytes(wrappedBuffer(new byte[] { 3 }));
+        assertTrue(ChannelBuffers.equals(a, b));
+
+        // Same content, different firstIndex, short length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3 });
+        b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 0, 1, 2, 3, 4 }, 1, 3));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-1);
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 0, 1, 2, 3, 4 }, 3, 1));
+        assertTrue(ChannelBuffers.equals(a, b));
+
+        // Different content, same firstIndex, short length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3 });
+        b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 1, 2 }, new byte[1]));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-1);
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 4 }));
+        assertFalse(ChannelBuffers.equals(a, b));
+
+        // Different content, different firstIndex, short length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3 });
+        b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 0, 1, 2, 4, 5 }, 1, 3));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-1);
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 0, 1, 2, 4, 5 }, 3, 1));
+        assertFalse(ChannelBuffers.equals(a, b));
+
+        // Same content, same firstIndex, long length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 1, 2, 3 }, new byte[7]));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-7);
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 4, 5, 6 }));
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 7, 8, 9, 10 }));
+        assertTrue(ChannelBuffers.equals(a, b));
+
+        // Same content, different firstIndex, long length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, 1, 10));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-5);
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, 6, 5));
+        assertTrue(ChannelBuffers.equals(a, b));
+
+        // Different content, same firstIndex, long length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 1, 2, 3, 4, 6 }, new byte[5]));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-5);
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 7, 8, 5, 9, 10 }));
+        assertFalse(ChannelBuffers.equals(a, b));
+
+        // Different content, different firstIndex, long length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        b = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 6, 7, 8, 5, 9, 10, 11 }, 1, 10));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-5);
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 6, 7, 8, 5, 9, 10, 11 }, 6, 5));
+        assertFalse(ChannelBuffers.equals(a, b));
+    }
+    @Test
+    public void testWrittenAndReadEquals() {
+        ChannelBuffer a, b;
+        //XXX Same tests than testEquals with read and written AggregateChannelBuffers
+        ChannelBuffer c = wrappedCheckedBuffer(wrappedBuffer(new byte[] { 1, 2 }));
+        // Different length.
+        a = wrappedBuffer(new byte[] { 1  });
+        b = wrappedCheckedBuffer(c, wrappedBuffer(new byte[] { 1 }, new byte[1]));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-1);
+        b.readByte();
+        b.readByte();
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 2 }));
+        assertFalse(ChannelBuffers.equals(a, b));
+
+        // Same content, same firstIndex, short length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3 });
+        b = wrappedCheckedBuffer(c, wrappedBuffer(new byte[] { 1 }, new byte[2]));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-2);
+        b.readByte();
+        b.readByte();
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 2 }));
+        b.writeBytes(wrappedBuffer(new byte[] { 3 }));
+        assertTrue(ChannelBuffers.equals(a, b));
+        assertEquals(a.readerIndex()+2, b.readerIndex());
+
+        // Same content, different firstIndex, short length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3 });
+        b = wrappedCheckedBuffer(c, wrappedBuffer(new byte[] { 0, 1, 2, 3, 4 }, 1, 3));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-1);
+        b.readByte();
+        b.readByte();
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 0, 1, 2, 3, 4 }, 3, 1));
+        assertTrue(ChannelBuffers.equals(a, b));
+        assertEquals(a.readerIndex()+2, b.readerIndex());
+
+        // Different content, same firstIndex, short length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3 });
+        b = wrappedCheckedBuffer(c, wrappedBuffer(new byte[] { 1, 2 }, new byte[1]));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-1);
+        b.readByte();
+        b.readByte();
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 4 }));
+        assertFalse(ChannelBuffers.equals(a, b));
+
+        // Different content, different firstIndex, short length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3 });
+        b = wrappedCheckedBuffer(c, wrappedBuffer(new byte[] { 0, 1, 2, 4, 5 }, 1, 3));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-1);
+        b.readByte();
+        b.readByte();
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 0, 1, 2, 4, 5 }, 3, 1));
+        assertFalse(ChannelBuffers.equals(a, b));
+
+        // Same content, same firstIndex, long length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        b = wrappedCheckedBuffer(c, wrappedBuffer(new byte[] { 1, 2, 3 }, new byte[7]));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-7);
+        b.readByte();
+        b.readByte();
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 4, 5, 6 }));
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 7, 8, 9, 10 }));
+        assertTrue(ChannelBuffers.equals(a, b));
+        assertEquals(a.readerIndex()+2, b.readerIndex());
+
+        // Same content, different firstIndex, long length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        b = wrappedCheckedBuffer(c,
+                wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, 1, 10));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-5);
+        b.readByte();
+        b.readByte();
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, 6, 5));
+        assertTrue(ChannelBuffers.equals(a, b));
+        assertEquals(a.readerIndex()+2, b.readerIndex());
+
+        // Different content, same firstIndex, long length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        b = wrappedCheckedBuffer(c, wrappedBuffer(new byte[] { 1, 2, 3, 4, 6 }, new byte[5]));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-5);
+        b.readByte();
+        b.readByte();
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 7, 8, 5, 9, 10 }));
+        assertFalse(ChannelBuffers.equals(a, b));
+
+        // Different content, different firstIndex, long length.
+        a = wrappedBuffer(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 });
+        b = wrappedCheckedBuffer(c,
+                wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 6, 7, 8, 5, 9, 10, 11 }, 1, 10));
+        // to enable writeBytes
+        b.writerIndex(b.writerIndex()-5);
+        b.readByte();
+        b.readByte();
+        b.writeBytes(
+                wrappedBuffer(new byte[] { 0, 1, 2, 3, 4, 6, 7, 8, 5, 9, 10, 11 }, 6, 5));
+        assertFalse(ChannelBuffers.equals(a, b));
+    }
+
+    @Test
     public void testHexDump() {
         assertEquals("", hexDump(wrappedCheckedBuffer(EMPTY_BUFFER)));
 
@@ -426,5 +634,21 @@ public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
                         0x12, 0x34, 0x56, 0x78,
                         (byte) 0x90, (byte) 0xAB, (byte) 0xCD, (byte) 0xEF
                 }))));
+    }
+
+    public static void main(String[] args) {
+        Result result = JUnitCore.runClasses(AggregateChannelBufferTest.class);
+        if (result.wasSuccessful()) {
+            long time = result.getRunTime();
+            System.out.println("OK: "+time);
+        } else {
+            List<Failure> failures = result.getFailures();
+            for (Failure failure : failures) {
+                System.err.println("Fail: "+failure.getDescription());
+                System.err.println(failure.getMessage());
+                System.err.println(failure.getTrace());
+            }
+        }
+
     }
 }
