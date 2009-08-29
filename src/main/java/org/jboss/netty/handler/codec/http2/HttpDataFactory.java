@@ -33,15 +33,6 @@ public interface HttpDataFactory {
      *
      * @param name
      * @param value
-     * @return a new Cookie
-     */
-    public Cookie createCookie(String name, String value)
-            throws NullPointerException, IllegalArgumentException;
-
-    /**
-     *
-     * @param name
-     * @param value
      * @return a new Attribute
      * @throws NullPointerException
      * @throws IllegalArgumentException
@@ -59,6 +50,6 @@ public interface HttpDataFactory {
      * @return a new FileUpload
      */
     public FileUpload createFileUpload(String name, String filename,
-            String contentType, String charset, long size)
-            throws NullPointerException, IllegalArgumentException;
+            String contentType, String contentTransferEncoding, String charset,
+            long size) throws NullPointerException, IllegalArgumentException;
 }

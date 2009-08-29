@@ -125,6 +125,18 @@ public interface FileUpload extends HttpData {
     public String getCharset();
 
     /**
+     * Set the Content-Transfer-Encoding type from String as 7bit, 8bit or binary
+     * @param contentTransferEncoding
+     */
+    public void setContentTransferEncoding(String contentTransferEncoding);
+
+    /**
+     * Returns the Content-Transfer-Encoding
+     * @return the Content-Transfer-Encoding
+     */
+    public String getContentTransferEncoding();
+
+    /**
      * A convenience method to write an uploaded item to disk.
      * If a previous one exists, it will be deleted.
      * @param dest destination file - must be not null

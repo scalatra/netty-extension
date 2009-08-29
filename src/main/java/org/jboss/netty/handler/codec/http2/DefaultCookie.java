@@ -314,24 +314,6 @@ public class DefaultCookie implements Cookie {
         return v;
     }
 
-    /* (non-Javadoc)
-     * @see java.lang.Comparable#compareTo(java.lang.Object)
-     */
-    public int compareTo(HttpData arg0) {
-        if (!(arg0 instanceof Cookie)) {
-            throw new ClassCastException("Cannot compare " +
-                    getHttpDataType() + " with " + arg0.getHttpDataType());
-        }
-        return compareTo((Cookie) arg0);
-    }
-
-    /* (non-Javadoc)
-     * @see org.jboss.netty.handler.codec.http2.HttpData#getHttpDataType()
-     */
-    public HttpDataType getHttpDataType() {
-        return HttpDataType.Cookie;
-    }
-
     @Override
     public String toString() {
         StringBuilder buf = new StringBuilder();

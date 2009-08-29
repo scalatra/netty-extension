@@ -111,8 +111,8 @@ public class DefaultAttribute implements Attribute {
 
     public int compareTo(HttpData arg0) {
         if (!(arg0 instanceof Attribute)) {
-            throw new ClassCastException("Cannot compare " +
-                    getHttpDataType() + " with " + arg0.getHttpDataType());
+            throw new ClassCastException("Cannot compare " + getHttpDataType() +
+                    " with " + arg0.getHttpDataType());
         }
         return compareTo((Attribute) arg0);
     }

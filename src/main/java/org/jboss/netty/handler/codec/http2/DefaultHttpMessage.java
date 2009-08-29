@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -230,6 +231,40 @@ public class DefaultHttpMessage implements HttpMessage {
         } else {
             return values;
         }
+    }
+
+    public Map<String, List<String>> getHeaders() {
+        return headers;
+    }
+
+    public Set<Cookie> getCookies() {
+        String value = getHeader(HttpHeaders.Names.COOKIE);
+        if (value == null) {
+            return Collections.emptySet();
+        }
+        CookieDecoder decoder = new CookieDecoder();
+        return decoder.decode(value);
+    }
+
+    public void addCookie(Cookie cookie, boolean isServer) {
+        CookieEncoder encoder = new CookieEncoder(isServer);
+        Set<Cookie> cookies = getCookies();
+        if (cookies == null) {
+            cookies = new TreeSet<Cookie>();
+        }
+        cookies.add(cookie);
+        for (Cookie one: cookies) {
+            encoder.addCookie(one);
+        }
+        setHeader(HttpHeaders.Names.COOKIE, encoder.encode());
+    }
+
+    public void setCookies(Set<Cookie> cookies, boolean isServer) {
+        CookieEncoder encoder = new CookieEncoder(isServer);
+        for (Cookie one: cookies) {
+            encoder.addCookie(one);
+        }
+        setHeader(HttpHeaders.Names.COOKIE, encoder.encode());
     }
 
     public boolean containsHeader(final String name) {

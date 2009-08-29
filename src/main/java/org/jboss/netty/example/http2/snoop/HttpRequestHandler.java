@@ -25,9 +25,11 @@ package org.jboss.netty.example.http2.snoop;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -46,18 +48,19 @@ import org.jboss.netty.handler.codec.http2.DiskFileUpload;
 import org.jboss.netty.handler.codec.http2.FileUpload;
 import org.jboss.netty.handler.codec.http2.HttpChunk;
 import org.jboss.netty.handler.codec.http2.HttpData;
-import org.jboss.netty.handler.codec.http2.HttpDataDecoder;
+import org.jboss.netty.handler.codec.http2.HttpBodyRequestDecoder;
 import org.jboss.netty.handler.codec.http2.HttpDataFactory;
 import org.jboss.netty.handler.codec.http2.HttpHeaders;
 import org.jboss.netty.handler.codec.http2.HttpRequest;
 import org.jboss.netty.handler.codec.http2.HttpResponse;
 import org.jboss.netty.handler.codec.http2.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http2.HttpVersion;
+import org.jboss.netty.handler.codec.http2.QueryStringDecoder;
 import org.jboss.netty.handler.codec.http2.HttpData.HttpDataType;
-import org.jboss.netty.handler.codec.http2.HttpDataDecoder.EndOfDataDecoderException;
-import org.jboss.netty.handler.codec.http2.HttpDataDecoder.ErrorDataDecoderException;
-import org.jboss.netty.handler.codec.http2.HttpDataDecoder.NotEnoughDataDecoderException;
-import org.jboss.netty.handler.codec.http2.HttpDataDecoder.UnappropriatedMethodDecodeDataException;
+import org.jboss.netty.handler.codec.http2.HttpBodyRequestDecoder.EndOfDataDecoderException;
+import org.jboss.netty.handler.codec.http2.HttpBodyRequestDecoder.ErrorDataDecoderException;
+import org.jboss.netty.handler.codec.http2.HttpBodyRequestDecoder.IncompatibleDataDecoderException;
+import org.jboss.netty.handler.codec.http2.HttpBodyRequestDecoder.NotEnoughDataDecoderException;
 
 /**
  * @author The Netty Project (netty-dev@lists.jboss.org)
@@ -71,14 +74,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
 
     private volatile HttpRequest request;
 
-    private volatile boolean readingChunks;
+    private volatile boolean readingChunks = false;
 
     private final StringBuilder responseContent = new StringBuilder();
 
     private static final HttpDataFactory factory = new DefaultHttpDataFactory(
-            true); // 16K
+            true); // Disk
 
-    private HttpDataDecoder decoder = null;
+    private HttpBodyRequestDecoder decoder = null;
     static {
         DiskFileUpload.deleteOnExitTemporaryFile = true; // should delete file on exit (in normal exit)
         DiskFileUpload.baseDirectory = null; // system temp directory
@@ -101,6 +104,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             // clean previous FileUpload if Any
             if (decoder != null) {
                 decoder.cleanFileUploads();
+                decoder = null;
             }
             HttpRequest request = this.request = (HttpRequest) e.getMessage();
             if (!request.getUri().startsWith("/form")) {
@@ -115,206 +119,198 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             responseContent.append("VERSION: " +
                     request.getProtocolVersion().getText() + "\r\n");
 
-            try {
-                decoder = new HttpDataDecoder(factory, request);
-            } catch (NotEnoughDataDecoderException e1) {
-                // continue
-            } catch (ErrorDataDecoderException e1) {
-                e1.printStackTrace();
-                responseContent.append(e1.getMessage());
-                writeResponse(e);
-                Channels.close(e.getChannel());
-                return;
-            } catch (UnappropriatedMethodDecodeDataException e1) {
-                e1.printStackTrace();
-                responseContent.append(e1.getMessage());
-                writeResponse(e);
-                Channels.close(e.getChannel());
-                return;
-            }
-
             responseContent.append("REQUEST_URI: " + request.getUri() +
                     "\r\n\r\n");
             responseContent.append("\r\n\r\n");
 
-            // new methods
-            Map<String, List<Attribute>> headers = decoder
-                    .getHeaderAttributes();
+            // new method
+            Map<String, List<String>> headers = request.getHeaders();
             for (String key: headers.keySet()) {
-                for (Attribute header: headers.get(key)) {
-                    responseContent.append("HEADER: " + header.toString() +
-                            "\r\n");
+                for (String value: headers.get(key)) {
+                    responseContent.append("HEADER: " + key +
+                            "=" + value + "\r\n");
                 }
             }
             responseContent.append("\r\n\r\n");
 
-            Map<String, Cookie> cookies = decoder.getCookies();
-            for (String key: cookies.keySet()) {
-                Cookie cookie = cookies.get(key);
+            // new method
+            Set<Cookie> cookies = request.getCookies();
+            for (Cookie cookie: cookies) {
                 responseContent.append("COOKIE: " + cookie.toString() + "\r\n");
             }
             responseContent.append("\r\n\r\n");
 
-            Map<String, List<Attribute>> uriAttributes;
-            uriAttributes = decoder.getUriAttributes();
+
+            QueryStringDecoder decoderQuery = new QueryStringDecoder(request.getUri());
+            Map<String, List<String>> uriAttributes =
+                decoderQuery.getParameters();
             for (String key: uriAttributes.keySet()) {
-                for (Attribute uriAttribute: uriAttributes.get(key)) {
-                    responseContent.append("URI: " + uriAttribute.toString() +
-                            "\r\n");
+                for (String value: uriAttributes.get(key)) {
+                    responseContent.append("URI: " + key +
+                            "=" + value + "\r\n");
                 }
             }
             responseContent.append("\r\n\r\n");
+
+            // if GET Method: should not try to create a HttpBodyRequestDecoder
+            try {
+                decoder = new HttpBodyRequestDecoder(factory, request);
+            } catch (ErrorDataDecoderException e1) {
+                e1.printStackTrace();
+                responseContent.append(e1.getMessage());
+                writeResponse(e.getChannel());
+                Channels.close(e.getChannel());
+                return;
+            } catch (IncompatibleDataDecoderException e1) {
+                // GET Method: should not try to create a HttpBodyRequestDecoder
+                // So OK but stop here
+                responseContent.append(e1.getMessage());
+                responseContent.append("\r\n\r\nEND OF GET CONTENT\r\n");
+                writeResponse(e.getChannel());
+                return;
+            }
 
             responseContent.append("Is Chunked: " + request.isChunked() +
                     "\r\n");
             responseContent.append("IsMultipart: " + decoder.isMultipart() +
                     "\r\n");
             if (request.isChunked()) {
+                // Chunk version
                 responseContent.append("Chunks: ");
                 readingChunks = true;
             } else {
-                ChannelBuffer content = request.getContent();
-                if (content.readable()) {
-                    responseContent.append("\r\n\r\n");
-                    if (decoder.isMultipart()) {
-                        readHttpData(e);
-                    } else {
-                        List<Attribute> bodyAttributes;
-                        try {
-                            bodyAttributes = decoder.getBodyListAttributes();
-                        } catch (NotEnoughDataDecoderException e1) {
-                            // should not be since not chunked !
-                            e1.printStackTrace();
-                            responseContent.append(e1.getMessage());
-                            writeResponse(e);
-                            Channels.close(e.getChannel());
-                            return;
-                        } catch (ErrorDataDecoderException e1) {
-                            e1.printStackTrace();
-                            responseContent.append(e1.getMessage());
-                            writeResponse(e);
-                            Channels.close(e.getChannel());
-                            return;
-                        } catch (UnappropriatedMethodDecodeDataException e1) {
-                            e1.printStackTrace();
-                            responseContent.append(e1.getMessage());
-                            writeResponse(e);
-                            Channels.close(e.getChannel());
-                            return;
-                        }
-                        for (Attribute bodyAttribute: bodyAttributes) {
-                            responseContent.append("BODY: " +
-                                    bodyAttribute.toString() + "\r\n");
-                        }
-                    }
-                }
-                responseContent.append("\r\n\r\nEND OF CONTENT\r\n");
-                writeResponse(e);
+                // Not chunk version
+                readHttpDataAllReceive(e.getChannel());
+                responseContent.append("\r\n\r\nEND OF NOT CHUNKED CONTENT\r\n");
+                writeResponse(e.getChannel());
             }
         } else {
+            // New chunk is received
             HttpChunk chunk = (HttpChunk) e.getMessage();
             try {
-                decoder.newChunk(chunk);
-            } catch (UnappropriatedMethodDecodeDataException e1) {
+                decoder.offer(chunk);
+            } catch (ErrorDataDecoderException e1) {
                 e1.printStackTrace();
                 responseContent.append(e1.getMessage());
-                writeResponse(e);
+                writeResponse(e.getChannel());
                 Channels.close(e.getChannel());
                 return;
             }
             responseContent.append("o");
-            readHttpData(e);
+            // example of reading chunk by chunk
+            readHttpDataChunkByChunk(e.getChannel());
+            // example of reading only if at the end
+            if (chunk.isLast()) {
+                readHttpDataAllReceive(e.getChannel());
+                writeResponse(e.getChannel());
+                readingChunks = false;
+            }
         }
     }
 
-    private void readHttpData(MessageEvent e) {
+    /**
+     * Example of reading all HttpData from finished transfer
+     * @param channel
+     */
+    private void readHttpDataAllReceive(Channel channel) {
+        List<HttpData> datas = null;
+        try {
+            datas = decoder.getBodyHttpDatas();
+        } catch (NotEnoughDataDecoderException e1) {
+            // Should not be!
+            e1.printStackTrace();
+            responseContent.append(e1.getMessage());
+            writeResponse(channel);
+            Channels.close(channel);
+            return;
+        }
+        for (HttpData data : datas) {
+            writeHttpData(data);
+        }
+        responseContent.append("\r\n\r\nEND OF CONTENT AT FINAL END\r\n");
+    }
+    /**
+     * Example of reading request by chunk and getting values from chunk to chunk
+     * @param channel
+     */
+    private void readHttpDataChunkByChunk(Channel channel) {
         try {
             while (decoder.hasNext()) {
                 HttpData data = decoder.next();
                 if (data != null) {
-                    // next value
-                    if (data.getHttpDataType() == HttpDataType.Attribute) {
-                        if (((Attribute) data).getValue().length() > 100) {
-                            responseContent.append("\r\nBODY DATA: " +
-                                    data.getHttpDataType().name() + ": " +
-                                    data.getName() + " data too long\r\n");
-                        } else {
-                            responseContent.append("\r\nBODY DATA: " +
-                                    data.getHttpDataType().name() + ": " +
-                                    data.toString() + "\r\n");
-                        }
-                    } else {
-                        responseContent.append("\r\nBODY DATA: " +
-                                data.getHttpDataType().name() + ": " +
-                                data.toString() + "\r\n");
-                        if (data.getHttpDataType() == HttpDataType.FileUpload) {
-                            FileUpload fileUpload = (FileUpload) data;
-                            if (fileUpload.isCompleted()) {
-                                if (fileUpload.length() < 10000) {
-                                    responseContent
-                                            .append("\tContent of file\r\n");
-                                    try {
-                                        responseContent
-                                                .append(((FileUpload) data)
-                                                        .getString(((FileUpload) data)
-                                                                .getCharset()));
-                                    } catch (IOException e1) {
-                                        // do nothing for the example
-                                        e1.printStackTrace();
-                                    }
-                                    responseContent.append("\r\n");
-                                } else {
-                                    responseContent
-                                            .append("\tFile too long to be printed out:" +
-                                                    fileUpload.length() +
-                                                    "\r\n");
-                                }
-                                //fileUpload.isInMemory();// tells if the file is in Memory or on File
-                                //fileUpload.renameTo(dest); // enable to move into another File dest
-                            } else {
-                                responseContent
-                                        .append("\tFile to be continued but should not!\r\n");
-                            }
-                        }
-                    }
+                    // new value
+                    writeHttpData(data);
                 }
             }
-        } catch (NotEnoughDataDecoderException e1) {
-            // continue
-            return;
         } catch (EndOfDataDecoderException e1) {
             // end
-            readingChunks = false;
-            responseContent.append("\r\n\r\nEND OF CONTENT\r\n");
-            writeResponse(e);
-            return;
-        } catch (ErrorDataDecoderException e1) {
-            e1.printStackTrace();
-            responseContent.append(e1.getMessage());
-            writeResponse(e);
-            Channels.close(e.getChannel());
-            return;
-        } catch (UnappropriatedMethodDecodeDataException e1) {
-            e1.printStackTrace();
-            responseContent.append(e1.getMessage());
-            writeResponse(e);
-            Channels.close(e.getChannel());
+            responseContent.append("\r\n\r\nEND OF CONTENT CHUNK BY CHUNK\r\n\r\n");
             return;
         }
     }
 
-    private void writeResponse(MessageEvent e) {
+    private void writeHttpData(HttpData data) {
+        if (data.getHttpDataType() == HttpDataType.Attribute) {
+            Attribute attribute = (Attribute) data;
+            String value = attribute.getValue();
+            if (value.length() > 100) {
+                responseContent.append("\r\nBODY Attribute: " +
+                        attribute.getHttpDataType().name() + ": " +
+                        attribute.getName() + " data too long\r\n");
+            } else {
+                responseContent.append("\r\nBODY Attribute: " +
+                        attribute.getHttpDataType().name() + ": " +
+                        attribute.toString() + "\r\n");
+            }
+        } else {
+            responseContent.append("\r\nBODY FileUpload: " +
+                    data.getHttpDataType().name() + ": " +
+                    data.toString() + "\r\n");
+            if (data.getHttpDataType() == HttpDataType.FileUpload) {
+                FileUpload fileUpload = (FileUpload) data;
+                if (fileUpload.isCompleted()) {
+                    if (fileUpload.length() < 10000) {
+                        responseContent
+                                .append("\tContent of file\r\n");
+                        try {
+                            responseContent
+                                    .append(((FileUpload) data)
+                                            .getString(((FileUpload) data)
+                                                    .getCharset()));
+                        } catch (IOException e1) {
+                            // do nothing for the example
+                            e1.printStackTrace();
+                        }
+                        responseContent.append("\r\n");
+                    } else {
+                        responseContent
+                                .append("\tFile too long to be printed out:" +
+                                        fileUpload.length() +
+                                        "\r\n");
+                    }
+                    //fileUpload.isInMemory();// tells if the file is in Memory or on File
+                    //fileUpload.renameTo(dest); // enable to move into another File dest
+                    //decoder.removeFileUploadFromClean(fileUpload); //remove the File of to delete file
+                } else {
+                    responseContent
+                            .append("\tFile to be continued but should not!\r\n");
+                }
+            }
+        }
+    }
+
+    private void writeResponse(Channel channel) {
         // Convert the response content to a ChannelBuffer.
         ChannelBuffer buf = ChannelBuffers.copiedBuffer(responseContent
                 .toString(), "UTF-8");
         responseContent.setLength(0);
 
         // Decide whether to close the connection or not.
-        boolean close = HttpHeaders.Values.CLOSE.equalsIgnoreCase(decoder
-                .getHeaderAttributeValue(HttpHeaders.Names.CONNECTION)) ||
+        boolean close = HttpHeaders.Values.CLOSE.equalsIgnoreCase(
+                request.getHeader(HttpHeaders.Names.CONNECTION)) ||
                 request.getProtocolVersion().equals(HttpVersion.HTTP_1_0) &&
-                !HttpHeaders.Values.KEEP_ALIVE.equalsIgnoreCase(decoder
-                        .getHeaderAttributeValue(HttpHeaders.Names.CONNECTION));
+                !HttpHeaders.Values.KEEP_ALIVE.equalsIgnoreCase(
+                        request.getHeader(HttpHeaders.Names.CONNECTION));
 
         // Build the response object.
         HttpResponse response = new DefaultHttpResponse(HttpVersion.HTTP_1_1,
@@ -330,18 +326,18 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     .valueOf(buf.readableBytes()));
         }
 
-        Map<String, Cookie> map = decoder.getCookies();
-        if (!map.isEmpty()) {
+        Set<Cookie> set = request.getCookies();
+        if (!set.isEmpty()) {
             // Reset the cookies if necessary.
             CookieEncoder cookieEncoder = new CookieEncoder(true);
-            for (Cookie cookie: map.values()) {
+            for (Cookie cookie: set) {
                 cookieEncoder.addCookie(cookie);
             }
             response.addHeader(HttpHeaders.Names.SET_COOKIE, cookieEncoder
                     .encode());
         }
         // Write the response.
-        ChannelFuture future = e.getChannel().write(response);
+        ChannelFuture future = channel.write(response);
 
         // Close the connection after the write operation is done if necessary.
         if (close) {

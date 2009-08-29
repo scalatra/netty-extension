@@ -34,7 +34,7 @@ import java.util.Random;
  * @author frederic bregier
  *
  */
-public class HttpDataEncoder {
+public class HttpBodyRequestEncoder {
     /**
      * Factory used to create HttpData
      */
@@ -49,6 +49,11 @@ public class HttpDataEncoder {
      * Default charset to use
      */
     private final String charset;
+
+    /**
+     * Chunked false by default
+     */
+    private boolean isChunk = false;
 
     /**
      * Does the last chunk already decoded
@@ -81,7 +86,7 @@ public class HttpDataEncoder {
     * @throws NullPointerException for response
     * @throws ErrorDataEncoderException if the default charset was wrong when decoding or other errors
     */
-    public HttpDataEncoder(HttpResponse response)
+    public HttpBodyRequestEncoder(HttpResponse response)
             throws ErrorDataEncoderException, NullPointerException {
         this(new DefaultHttpDataFactory(DefaultHttpDataFactory.MINSIZE),
                 response, HttpCodecUtil.DEFAULT_CHARSET);
@@ -94,7 +99,7 @@ public class HttpDataEncoder {
      * @throws NullPointerException for response and factory
      * @throws ErrorDataEncoderException if the default charset was wrong when decoding or other errors
      */
-    public HttpDataEncoder(HttpDataFactory factory, HttpResponse response)
+    public HttpBodyRequestEncoder(HttpDataFactory factory, HttpResponse response)
             throws ErrorDataEncoderException, NullPointerException {
         this(factory, response, HttpCodecUtil.DEFAULT_CHARSET);
     }
@@ -107,7 +112,7 @@ public class HttpDataEncoder {
      * @throws NullPointerException for request or charset or factory
      * @throws ErrorDataEncoderException if the default charset was wrong when decoding or other errors
      */
-    public HttpDataEncoder(HttpDataFactory factory, HttpResponse response,
+    public HttpBodyRequestEncoder(HttpDataFactory factory, HttpResponse response,
             String charset) throws ErrorDataEncoderException,
             NullPointerException {
         if (factory == null) {
@@ -160,7 +165,7 @@ public class HttpDataEncoder {
         if (cookie == null) {
             throw new NullPointerException("cookie");
         }
-        cookies.put(cookie.getName().toLowerCase(), cookie);
+        cookies.put(cookie.getName(), cookie);
     }
 
     /**
@@ -192,11 +197,10 @@ public class HttpDataEncoder {
         if (attribute == null) {
             throw new NullPointerException("attribute");
         }
-        List<Attribute> attributes = uriAttributes.get(attribute.getName()
-                .toLowerCase());
+        List<Attribute> attributes = uriAttributes.get(attribute.getName());
         if (attributes == null) {
             attributes = new ArrayList<Attribute>();
-            uriAttributes.put(attribute.getName().toLowerCase(), attributes);
+            uriAttributes.put(attribute.getName(), attributes);
         }
         attributes.add(attribute);
     }
@@ -230,11 +234,10 @@ public class HttpDataEncoder {
         if (attribute == null) {
             throw new NullPointerException("attribute");
         }
-        List<Attribute> attributes = headerAttributes.get(attribute.getName()
-                .toLowerCase());
+        List<Attribute> attributes = headerAttributes.get(attribute.getName());
         if (attributes == null) {
             attributes = new ArrayList<Attribute>();
-            headerAttributes.put(attribute.getName().toLowerCase(), attributes);
+            headerAttributes.put(attribute.getName(), attributes);
         }
         attributes.add(attribute);
     }
@@ -248,7 +251,7 @@ public class HttpDataEncoder {
     /**
      * Body attributes if not in Multipart
      */
-    private ListIterator<Attribute> bodyIteratorAttributes = null;
+    private final ListIterator<Attribute> bodyIteratorAttributes = null;
 
     /**
      * If multipart, this is the boundary for the flobal multipart
@@ -264,27 +267,32 @@ public class HttpDataEncoder {
     /**
      * Current status
      */
-    private MultiPartStatus currentStatus = MultiPartStatus.NOTSTARTED;
+    private final MultiPartStatus currentStatus = MultiPartStatus.NOTSTARTED;
 
     /**
      * The current HttpData that was decoded but still no returned
      */
-    private HttpData currentHttpData = null;
+    private final HttpData currentHttpData = null;
 
     /**
      * Used in Multipart
      */
-    private Map<String, Attribute> currentFieldAttributes = null;
+    private final Map<String, Attribute> currentFieldAttributes = null;
 
     /**
      * The current FileUpload that is currently in decode process
      */
-    private FileUpload currentFileUpload = null;
+    private final FileUpload currentFileUpload = null;
 
     /**
      * Keep all FileUpload until cleanFileUploads() is called.
      */
-    private List<FileUpload> fileUploadsToDelete = null;
+    private final List<FileUpload> fileUploadsToDelete = null;
+
+    /**
+     * Global Body size
+     */
+    private long globalBodySize = 0;
 
     /**
      * states follow
@@ -362,6 +370,7 @@ public class HttpDataEncoder {
         multipartDataBoundary = "--" + newdelimiter;
         isMultipart = true;
     }
+
     /**
      * Set the delimiter for Mixed Part (Mixed).
      * @param delimiter (may be null so computed)
@@ -378,7 +387,7 @@ public class HttpDataEncoder {
      *
      * @return a newly generated Delimiter (either for DATA or MIXED)
      */
-    public String getNewMultipartDelimiter() {
+    private String getNewMultipartDelimiter() {
         // construct a generated delimiter
         Random random = new Random();
         return Long.toHexString(random.nextLong()).toLowerCase();
@@ -403,7 +412,46 @@ public class HttpDataEncoder {
         if (datas == null) {
             throw new NullPointerException("datas");
         }
+        globalBodySize = 0;
         bodyListDatas = datas;
+        for (HttpData data: datas) {
+            globalBodySize = getSizeFromHttpData(data);
+            if (data instanceof FileUpload) {
+                isMultipart = true;
+            }
+        }
+    }
+
+    private long getSizeFromHttpData(HttpData data) {
+        long localBodySize = 0;
+        if (data instanceof FileUpload) {
+            FileUpload fileUpload = (FileUpload) data;
+            localBodySize = fileUpload.length() +
+                    fileUpload.getName().length() +
+                    HttpBodyUtil.CONTENT_DISPOSITION.length() + 2 +
+                    HttpBodyUtil.FORM_DATA.length() + 2 +
+                    HttpBodyUtil.NAME.length() + 1;
+            String contentType = fileUpload.getContentType();
+            if (contentType != null) {
+                localBodySize += contentType.length() + 1 +
+                        HttpBodyUtil.CONTENT_TYPE.length();
+            }
+            contentType = fileUpload.getCharset();
+            if (contentType != null) {
+                localBodySize += contentType.length() + 3 +
+                        HttpBodyUtil.CHARSET.length();
+            } else {
+                localBodySize += 2 +
+                        HttpBodyUtil.CONTENT_TRANSFER_ENCODING.length() +
+                        HttpBodyUtil.TransferEncodingMechanism.BINARY.value
+                                .length();
+            }
+        } else {
+            Attribute attribute = (Attribute) data;
+            localBodySize = attribute.getName().length() +
+                    attribute.getValue().length() + 1;
+        }
+        return localBodySize;
     }
 
     /**
@@ -415,35 +463,125 @@ public class HttpDataEncoder {
             throw new NullPointerException("data");
         }
         bodyListDatas.add(data);
+        globalBodySize = getSizeFromHttpData(data);
+        if (data instanceof FileUpload) {
+            isMultipart = true;
+        }
     }
 
-    public void encode(boolean serverSide) {
-        boolean close = HttpHeaders.Values.CLOSE.equalsIgnoreCase(
-                headerAttributes.get(HttpHeaders.Names.CONNECTION).get(0).getValue()) ||
+    public void encodeHeader(boolean serverSide) {
+        //FIXME should we do close ?
+        boolean close = HttpHeaders.Values.CLOSE
+                .equalsIgnoreCase(headerAttributes.get(
+                        HttpHeaders.Names.CONNECTION).get(0).getValue()) ||
                 response.getProtocolVersion().equals(HttpVersion.HTTP_1_0) &&
-                !HttpHeaders.Values.KEEP_ALIVE.equalsIgnoreCase(
-                        headerAttributes.get(HttpHeaders.Names.CONNECTION).get(0).getValue());
-        for (List<Attribute> headers : this.headerAttributes.values()) {
-            for (Attribute header : headers) {
+                !HttpHeaders.Values.KEEP_ALIVE
+                        .equalsIgnoreCase(headerAttributes.get(
+                                HttpHeaders.Names.CONNECTION).get(0).getValue());
+        for (List<Attribute> headers: headerAttributes.values()) {
+            for (Attribute header: headers) {
+                if (header.getName()
+                        .equalsIgnoreCase(HttpBodyUtil.CONTENT_TYPE)) {
+                    // No content type now
+                    break;
+                }
                 response.addHeader(header.getName(), header.getValue());
             }
         }
-        if (! this.cookies.isEmpty()) {
+        if (!cookies.isEmpty()) {
             CookieEncoder encoder = new CookieEncoder(serverSide);
-            for (Cookie cookie : this.cookies.values()) {
+            for (Cookie cookie: cookies.values()) {
                 encoder.addCookie(cookie);
             }
             response.setHeader("Cookie", encoder.encode());
         }
-
+        if (isMultipart) {
+            // first try to find the content-type
+            List<Attribute> contentTypes = headerAttributes
+                    .get(HttpBodyUtil.CONTENT_TYPE);
+            boolean found = false;
+            if (contentTypes != null) {
+                for (Attribute contentType: contentTypes) {
+                    String value = contentType.getValue();
+                    // "multipart/form-data; boundary=--89421926422648"
+                    if (value.toLowerCase().startsWith(
+                            HttpBodyUtil.MULTIPART_FORM_DATA + "; " +
+                                    HttpBodyUtil.BOUNDARY)) {
+                        // OK
+                        response.addHeader(contentType.getName(), value);
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                String value = HttpBodyUtil.MULTIPART_FORM_DATA + "; " +
+                        HttpBodyUtil.BOUNDARY + "=";
+                if (multipartDataBoundary == null) {
+                    multipartDataBoundary = "--" + getNewMultipartDelimiter();
+                }
+                value += multipartDataBoundary;
+                Attribute contentType = factory.createAttribute(
+                        HttpBodyUtil.CONTENT_TYPE, value);
+                addHeaderAttributes(contentType);
+                response.addHeader(contentType.getName(), contentType
+                        .getValue());
+            }
+        } else {
+            // Not multipart
+            List<Attribute> contentTypes = headerAttributes
+                    .get(HttpBodyUtil.CONTENT_TYPE);
+            boolean found = false;
+            if (contentTypes != null) {
+                for (Attribute contentType: contentTypes) {
+                    String value = contentType.getValue();
+                    // "application/x-www-form-urlencoded"
+                    if (value.toLowerCase().startsWith(
+                            HttpBodyUtil.STANDARD_APPLICATION_FORM)) {
+                        // OK
+                        response.addHeader(contentType.getName(), value);
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                Attribute contentType = factory.createAttribute(
+                        HttpBodyUtil.CONTENT_TYPE,
+                        HttpBodyUtil.STANDARD_APPLICATION_FORM);
+                addHeaderAttributes(contentType);
+                response.addHeader(contentType.getName(), contentType
+                        .getValue());
+            }
+        }
+        // Now consider size for chunk or not
+        if (!close) {
+            // There's no need to add 'Content-Length' header
+            // if this is the last response.
+            long realSize = globalBodySize;
+            if (isMultipart) {
+                realSize += bodyListDatas.size() *
+                        (multipartDataBoundary.length() + 8);
+                // --databoundary + 4 CRLF
+            } else {
+                realSize += bodyListDatas.size(); // &
+            }
+            response.setHeader(HttpHeaders.Names.CONTENT_LENGTH, String
+                    .valueOf(realSize));
+            if (realSize > 8096) {
+                isChunk = true;
+            }
+        }
     }
+
     /**
      * Encode the next data from the body (multipart or not)
      * @return the next decoded HttpData
      * @throws EndOfDataEncoderException if the end of the decode operation is reached
      * @throws ErrorDataEncoderException if an error occurs during decode
      */
-    private HttpData encodeBody() throws EndOfDataEncoderException, ErrorDataEncoderException {
+    private HttpData encodeBody() throws EndOfDataEncoderException,
+            ErrorDataEncoderException {
         if (isMultipart) {
             //return encodeMultipart(currentStatus);
             return null;//FIXME

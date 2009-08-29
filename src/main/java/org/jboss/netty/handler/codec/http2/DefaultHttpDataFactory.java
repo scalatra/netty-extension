@@ -23,9 +23,9 @@
 package org.jboss.netty.handler.codec.http2;
 
 /**
- * Default factory giving DefaultCookie, DefaultAttribute and DefaultFileUpload
+ * Default factory giving DefaultAttribute and FileUpload according to constructor
  *
- * FileUpload could be DefaultFileUpload, DiskFileUpload or MixteFileUpload
+ * FileUpload could be MemoryFileUpload, DiskFileUpload or MixteFileUpload
  * according to the constructor.
  *
  * @author frederic bregier
@@ -81,27 +81,20 @@ public class DefaultHttpDataFactory implements HttpDataFactory {
     }
 
     /* (non-Javadoc)
-     * @see org.jboss.netty.handler.codec.http2.HttpDataFactory#createCookie(java.lang.String, java.lang.String)
-     */
-    public Cookie createCookie(String name, String value)
-            throws NullPointerException, IllegalArgumentException {
-        return new DefaultCookie(name, value);
-    }
-
-    /* (non-Javadoc)
      * @see org.jboss.netty.handler.codec.http2.HttpDataFactory#createFileUpload(java.lang.String, java.lang.String, java.lang.String)
      */
     public FileUpload createFileUpload(String name, String filename,
-            String contentType, String charset, long size)
-            throws NullPointerException, IllegalArgumentException {
+            String contentType, String contentTransferEncoding, String charset,
+            long size) throws NullPointerException, IllegalArgumentException {
         if (useDisk) {
-            return new DiskFileUpload(name, filename, contentType, charset,
-                    size);
+            return new DiskFileUpload(name, filename, contentType,
+                    contentTransferEncoding, charset, size);
         } else if (checkSize) {
-            return new MixteFileUpload(name, filename, contentType, charset,
-                    size, minSize);
+            return new MixteFileUpload(name, filename, contentType,
+                    contentTransferEncoding, charset, size, minSize);
         }
-        return new DefaultFileUpload(name, filename, contentType, charset, size);
+        return new MemoryFileUpload(name, filename, contentType,
+                contentTransferEncoding, charset, size);
     }
 
 }

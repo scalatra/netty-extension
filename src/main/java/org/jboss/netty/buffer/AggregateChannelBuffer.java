@@ -88,7 +88,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
      */
     public static ChannelBuffer wrappedCheckedBuffer(ChannelBuffer buffer) {
         if (buffer.readable()) {
-            ChannelBuffer [] buffers = {buffer};
+            ChannelBuffer[] buffers = { buffer };
             return new AggregateChannelBuffer(buffers);// not buffer.slice();
         } else {
             return ChannelBuffers.EMPTY_BUFFER;
@@ -134,7 +134,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
             throw new IllegalArgumentException(
                     "buffers have only empty buffers.");
         }
-        setFromList(bufferList, expectedEndianness, 0);
+        setFromList(bufferList, expectedEndianness);
     }
 
     /**
@@ -151,7 +151,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
         int maxlength = localWriterIndex - localReaderIndex;
         if (maxlength < length) {
             // check then if maxlength is compatible with the capacity
-            maxlength = this.capacity() - localReaderIndex;
+            maxlength = capacity() - localReaderIndex;
             if (maxlength < length) {
                 // too big
                 throw new IllegalArgumentException(
@@ -193,10 +193,9 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
      * Setup this ChannelBuffer from the list and the Endianness
      * @param listBuf
      * @param expectedEndianness
-     * @param startIndex start readerIndex to use (generally 0)
      */
     private void setFromList(ArrayList<ChannelBuffer> listBuf,
-            ByteOrder expectedEndianness, int startIndex) {
+            ByteOrder expectedEndianness) {
         int number = listBuf.size();
         if (number == 0) {
             order = expectedEndianness;
@@ -221,12 +220,14 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
             i ++;
         }
         indices = new int[number + 1];
-        indices[0] = startIndex;
+        indices[0] = 0;
         for (i = 1; i <= number; i ++) {
             indices[i] = indices[i - 1] + slices[i - 1].capacity();
         }
         writerIndex(capacity());
+        readerIndex(listBuf.get(0).readerIndex());
     }
+
     /**
      * Use by duplicate method
      * @param buffer the buffer to duplicate
@@ -253,7 +254,8 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
                 throw new IllegalArgumentException(
                         "All buffers must have the same endianness.");
             }
-            ArrayList<ChannelBuffer> bufferAddedList = new ArrayList<ChannelBuffer>(1);
+            ArrayList<ChannelBuffer> bufferAddedList = new ArrayList<ChannelBuffer>(
+                    1);
             if (src instanceof AggregateChannelBuffer) {
                 // first clean it
                 AggregateChannelBuffer subbuf = (AggregateChannelBuffer) src;
@@ -261,12 +263,11 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
                         srcIndex, length);
                 bufferAddedList.addAll(subList);
             } else {
-                ChannelBuffer other = src.slice(srcIndex,
-                        length);
+                ChannelBuffer other = src.slice(srcIndex, length);
                 bufferAddedList.add(other);
             }
             int localWriterIndex = this.writerIndex();
-            for (ChannelBuffer buffer : bufferAddedList) {
+            for (ChannelBuffer buffer: bufferAddedList) {
                 int sublength = buffer.readableBytes();
                 setBytes(localWriterIndex, buffer, buffer.readerIndex(),
                         sublength);
@@ -290,41 +291,49 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
         }
         int localWriterIndex = this.writerIndex();
         // Local Length to copy (move)
-        int localLength = this.capacity() - localReaderIndex;
-        ArrayList<ChannelBuffer> list = this.getBufferList(localReaderIndex, localLength);
+        // FIXME if copy concerns only readeable then use
+        // int localLength = localWriterIndex - localReaderIndex;
+        int localLength = capacity() - localReaderIndex;
+        ArrayList<ChannelBuffer> list = getBufferList(localReaderIndex,
+                localLength);
         // First buffer must be really truncated to preserve capacity
         ChannelBuffer first = list.get(0);
         int firstCapacity = first.writerIndex() - first.readerIndex();
-        ChannelBuffer firstbuf = ChannelBuffers.buffer(this.order, firstCapacity);
+        ChannelBuffer firstbuf = ChannelBuffers.buffer(order,
+                firstCapacity);
         firstbuf.writeBytes(first);
         list.set(0, firstbuf);
         // add a buffer to maintain capacity equivalent to discarded read bytes
         // some internal buffers can be removed due to readerIndex
+        // FIXME if copy concerns only readeable then use
+        // ChannelBuffer buffer = ChannelBuffers.buffer(this.capacity - firstCapacity);
         ChannelBuffer buffer = ChannelBuffers.buffer(localReaderIndex);
         list.add(buffer);
         // reset markedReader and markedWriter Indexes in order to get values
         int localMarkedReaderIndex = localReaderIndex;
         try {
-            this.resetReaderIndex();
+            resetReaderIndex();
             localMarkedReaderIndex = this.readerIndex();
         } catch (IndexOutOfBoundsException e) {
             // ignore
         }
         int localMarkedWriterIndex = localWriterIndex;
         try {
-            this.resetWriterIndex();
+            resetWriterIndex();
             localMarkedWriterIndex = this.writerIndex();
         } catch (IndexOutOfBoundsException e) {
             // ignore
         }
-        this.setFromList(list, order, 0);
+        setFromList(list, order);
         // reset marked Indexes
-        localMarkedReaderIndex = Math.max(localMarkedReaderIndex - localReaderIndex, 0);
-        localMarkedWriterIndex = Math.max(localMarkedWriterIndex - localReaderIndex, 0);
+        localMarkedReaderIndex = Math.max(localMarkedReaderIndex -
+                localReaderIndex, 0);
+        localMarkedWriterIndex = Math.max(localMarkedWriterIndex -
+                localReaderIndex, 0);
         this.readerIndex(localMarkedReaderIndex);
         this.writerIndex(localMarkedWriterIndex);
-        this.markReaderIndex();
-        this.markWriterIndex();
+        markReaderIndex();
+        markWriterIndex();
         // reset real indexes
         localWriterIndex = Math.max(localWriterIndex - localReaderIndex, 0);
         localReaderIndex = 0;
@@ -711,7 +720,8 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
         while (length > 0) {
             ChannelBuffer s = slices[i];
             int adjustment = indices[i];
-            int localLength = Math.min(length, s.capacity() - (index - adjustment));
+            int localLength = Math.min(length, s.capacity() -
+                    (index - adjustment));
             s.getBytes(index - adjustment, dst, dstIndex, localLength);
             index += localLength;
             dstIndex += localLength;
@@ -832,9 +842,10 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
         throw new IndexOutOfBoundsException();
     }
 
+    @Override
     public String toString() {
         String result = super.toString();
-        result = result.substring(0, result.length()-1);
-        return result+", slices="+this.slices.length+")";
+        result = result.substring(0, result.length() - 1);
+        return result + ", slices=" + slices.length + ")";
     }
 }

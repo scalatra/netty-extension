@@ -26,23 +26,22 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.TreeMap;
 
 import org.jboss.netty.buffer.AggregateChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.handler.codec.http2.HttpBodyUtil.TransferEncodingMechanism;
+import org.jboss.netty.util.internal.CaseIgnoringComparator;
 
 /**
- * This decoder will decode request and can handle POST or PUT BODY.
+ * This decoder will decode Body and can handle POST or PUT BODY.
+ *
  * @author frederic bregier
  *
  */
-public class HttpDataDecoder {
+public class HttpBodyRequestDecoder {
     /**
      * Factory used to create HttpData
      */
@@ -69,282 +68,16 @@ public class HttpDataDecoder {
     private boolean isLastChunk = false;
 
     /**
-     * Cookies
+     * HttpDatas from Body
      */
-    private final Map<String, Cookie> cookies;
+    private final List<HttpData> bodyListHttpData = new ArrayList<HttpData>();
 
     /**
-     * Attributes from URI
+     * HttpDatas as Map from Body
      */
-    private final Map<String, List<Attribute>> uriAttributes;
+    private final Map<String, List<HttpData>> bodyMapHttpData = new TreeMap<String, List<HttpData>>(
+            CaseIgnoringComparator.INSTANCE);
 
-    /**
-     * Attributes from Header
-     */
-    private final Map<String, List<Attribute>> headerAttributes;
-
-    /**
-     * Attributes from Body, only valid if not Multipart (in list format)
-     */
-    private List<Attribute> bodyListAttributes = null;
-
-    /**
-     * Attributes from Body, only valid if not Multipart (in map format)
-     */
-    private Map<String, List<Attribute>> bodyMapAttributes = null;
-
-    /**
-    *
-    * @param request the request to decode
-    * @throws NullPointerException for request
-    * @throws NotEnoughDataDecoderException Need more chunks and
-    *   reset the readerInder to the previous value
-    * @throws UnappropriatedMethodDecodeDataException if the request is not a PUT or POST request
-    *          or if an error occurs
-    * @throws ErrorDataDecoderException if the default charset was wrong when decoding or other errors
-    */
-    public HttpDataDecoder(HttpRequest request)
-            throws NotEnoughDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException, NullPointerException {
-        this(new DefaultHttpDataFactory(DefaultHttpDataFactory.MINSIZE),
-                request, HttpCodecUtil.DEFAULT_CHARSET);
-    }
-
-    /**
-     *
-     * @param factory the factory used to create HttpData
-     * @param request the request to decode
-     * @throws NullPointerException for request or factory
-     * @throws NotEnoughDataDecoderException Need more chunks and
-     *   reset the readerInder to the previous value
-     * @throws UnappropriatedMethodDecodeDataException if the request is not a PUT or POST request
-     *          or if an error occurs
-     * @throws ErrorDataDecoderException if the default charset was wrong when decoding or other errors
-     */
-    public HttpDataDecoder(HttpDataFactory factory, HttpRequest request)
-            throws NotEnoughDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException, NullPointerException {
-        this(factory, request, HttpCodecUtil.DEFAULT_CHARSET);
-    }
-
-    /**
-     *
-     * @param factory the factory used to create HttpData
-     * @param request the request to decode
-     * @param charset the charset to use as default
-     * @throws NullPointerException for request or charset or factory
-     * @throws NotEnoughDataDecoderException Need more chunks and
-     *   reset the readerInder to the previous value
-     * @throws UnappropriatedMethodDecodeDataException if the request is not a PUT or POST request
-     *          or if an error occurs
-     * @throws ErrorDataDecoderException if the default charset was wrong when decoding or other errors
-     */
-    public HttpDataDecoder(HttpDataFactory factory, HttpRequest request,
-            String charset) throws NotEnoughDataDecoderException,
-            ErrorDataDecoderException, UnappropriatedMethodDecodeDataException,
-            NullPointerException {
-        if (factory == null) {
-            throw new NullPointerException("factory");
-        }
-        if (request == null) {
-            throw new NullPointerException("request");
-        }
-        if (charset == null) {
-            throw new NullPointerException("charset");
-        }
-        this.request = request;
-        this.charset = charset;
-        this.factory = factory;
-        // Fill default values
-        cookies = new HashMap<String, Cookie>();
-        setCookies();
-        uriAttributes = new HashMap<String, List<Attribute>>();
-        setUriAttributes();
-        headerAttributes = new HashMap<String, List<Attribute>>();
-        setHeaderAttributes();
-        if (headerAttributes.containsKey(CONTENT_TYPE)) {
-            checkMultipart(headerAttributes.get(CONTENT_TYPE).get(0).getValue());
-            if (isMultipart) {
-                bodyToDecode = true;
-            }
-        } else {
-            isMultipart = false;
-            bodyToDecode = false;
-        }
-        HttpMethod method = request.getMethod();
-        if (method.equals(HttpMethod.POST) || method.equals(HttpMethod.PUT)) {
-            bodyToDecode = true;
-            if (!request.isChunked()) {
-                undecodedChunk = request.getContent();
-                isLastChunk = true;
-            }
-        }
-        // Now check if not multipart and not chunked
-        if (!isMultipart && isLastChunk) {
-            // can decode Body
-            setBodyAttributes();
-        }
-    }
-
-    /**
-     *
-     * @return the Map of Cookies where the key are their names
-     */
-    public Map<String, Cookie> getCookies() {
-        return cookies;
-    }
-
-    /**
-     * Fill the cookies map
-     */
-    private void setCookies() {
-        // Really decode the cookies
-        CookieDecoder decoder = new CookieDecoder();
-        List<String> list = request.getHeaders(HttpHeaders.Names.COOKIE);
-        for (String scookie: list) {
-            Set<Cookie> set = decoder.decode(scookie);
-            for (Cookie cookie: set) {
-                String name = cookie.getName();
-                cookies.put(name.toLowerCase(), cookie);
-            }
-        }
-    }
-
-    /**
-     *
-     * @param name
-     * @return the cookie associated with the given name (ignore case)
-     */
-    public Cookie getCookie(String name) {
-        return cookies.get(name.toLowerCase());
-    }
-
-    /**
-     *
-     * @return a Map of URI Attributes where the key are their names
-     */
-    public Map<String, List<Attribute>> getUriAttributes() {
-        return uriAttributes;
-    }
-
-    /**
-     * Fill the URI Attributes
-     * @throws ErrorDataDecoderException
-     */
-    private void setUriAttributes() throws ErrorDataDecoderException {
-        // really decode the URI
-        decodeUriAttribute(uriAttributes, request.getUri());
-    }
-
-    /**
-     *
-     * @param name
-     * @return the list of URI attributes with the given name (ignore case)
-     */
-    public List<Attribute> getUriAttributes(String name) {
-        return uriAttributes.get(name.toLowerCase());
-    }
-
-    /**
-     *
-     * @param name
-     * @return the first URI attributes with the given name (ignore case)
-     */
-    public Attribute getUriAttribute(String name) {
-        List<Attribute> list = uriAttributes.get(name.toLowerCase());
-        if (list.isEmpty()) {
-            return null;
-        } else {
-            return list.get(0);
-        }
-    }
-
-    /**
-    *
-    * @param name
-    * @return the value of the first URI attributes with the given name (ignore case)
-    */
-    public String getUriAttributeValue(String name) {
-        List<Attribute> list = uriAttributes.get(name.toLowerCase());
-        if (list.isEmpty()) {
-            return null;
-        } else {
-            return list.get(0).getValue();
-        }
-    }
-
-    /**
-     *
-     * @return a Map of Header Attributes (except Cookie) where the key are their names
-     */
-    public Map<String, List<Attribute>> getHeaderAttributes() {
-        return headerAttributes;
-    }
-
-    /**
-     * Fill the Header Attributes (except Cookie)
-     * @throws ErrorDataDecoderException
-     */
-    private void setHeaderAttributes() throws ErrorDataDecoderException {
-        // Construction from already decoded Request except COOKIE
-        Set<String> headers = request.getHeaderNames();
-        for (String name: headers) {
-            if (!name.equalsIgnoreCase(HttpHeaders.Names.COOKIE)) {
-                List<String> slist = request.getHeaders(name);
-                List<Attribute> lattribute = new ArrayList<Attribute>(slist
-                        .size());
-                for (String value: slist) {
-                    Attribute attribute;
-                    try {
-                        attribute = factory.createAttribute(name, value);
-                    } catch (Exception e) {
-                        throw new ErrorDataDecoderException(e);
-                    }
-                    lattribute.add(attribute);
-                }
-                headerAttributes.put(name.toLowerCase(), lattribute);
-            }
-        }
-    }
-
-    /**
-    *
-    * @param name
-    * @return the list of Header attributes with the given name (ignore case)
-    */
-    public List<Attribute> getHeaderAttributes(String name) {
-        return headerAttributes.get(name.toLowerCase());
-    }
-
-    /**
-     *
-     * @param name
-     * @return the first Header attributes with the given name (ignore case)
-     */
-    public Attribute getHeaderAttribute(String name) {
-        List<Attribute> list = headerAttributes.get(name.toLowerCase());
-        if (list.isEmpty()) {
-            return null;
-        } else {
-            return list.get(0);
-        }
-    }
-
-    /**
-    *
-    * @param name
-    * @return the value of the first Header attributes with the given name (ignore case)
-    */
-    public String getHeaderAttributeValue(String name) {
-        List<Attribute> list = headerAttributes.get(name.toLowerCase());
-        if (list.isEmpty()) {
-            return null;
-        } else {
-            return list.get(0).getValue();
-        }
-    }
-
-    // Here begins the Multipart specificity
     /**
      * The current channelBuffer
      */
@@ -356,9 +89,9 @@ public class HttpDataDecoder {
     private boolean isMultipart = false;
 
     /**
-     * Body attributes if not in Multipart
+     * Body HttpDatas current position
      */
-    private ListIterator<Attribute> bodyIteratorAttributes = null;
+    private int bodyListHttpDataRank = 0;
 
     /**
      * If multipart, this is the boundary for the flobal multipart
@@ -377,11 +110,6 @@ public class HttpDataDecoder {
     private MultiPartStatus currentStatus = MultiPartStatus.NOTSTARTED;
 
     /**
-     * The current HttpData that was decoded but still no returned
-     */
-    private HttpData currentHttpData = null;
-
-    /**
      * Used in Multipart
      */
     private Map<String, Attribute> currentFieldAttributes = null;
@@ -395,6 +123,78 @@ public class HttpDataDecoder {
      * Keep all FileUpload until cleanFileUploads() is called.
      */
     private List<FileUpload> fileUploadsToDelete = null;
+
+    /**
+    *
+    * @param request the request to decode
+    * @throws NullPointerException for request
+    * @throws IncompatibleDataDecoderException if the request has no body to decode
+    * @throws ErrorDataDecoderException if the default charset was wrong when decoding or other errors
+    */
+    public HttpBodyRequestDecoder(HttpRequest request)
+            throws ErrorDataDecoderException, IncompatibleDataDecoderException,
+            NullPointerException {
+        this(new DefaultHttpDataFactory(DefaultHttpDataFactory.MINSIZE),
+                request, HttpCodecUtil.DEFAULT_CHARSET);
+    }
+
+    /**
+     *
+     * @param factory the factory used to create HttpData
+     * @param request the request to decode
+     * @throws NullPointerException for request or factory
+     * @throws IncompatibleDataDecoderException if the request has no body to decode
+     * @throws ErrorDataDecoderException if the default charset was wrong when decoding or other errors
+     */
+    public HttpBodyRequestDecoder(HttpDataFactory factory, HttpRequest request)
+            throws ErrorDataDecoderException, IncompatibleDataDecoderException,
+            NullPointerException {
+        this(factory, request, HttpCodecUtil.DEFAULT_CHARSET);
+    }
+
+    /**
+     *
+     * @param factory the factory used to create HttpData
+     * @param request the request to decode
+     * @param charset the charset to use as default
+     * @throws NullPointerException for request or charset or factory
+     * @throws IncompatibleDataDecoderException if the request has no body to decode
+     * @throws ErrorDataDecoderException if the default charset was wrong when decoding or other errors
+     */
+    public HttpBodyRequestDecoder(HttpDataFactory factory, HttpRequest request,
+            String charset) throws ErrorDataDecoderException,
+            IncompatibleDataDecoderException, NullPointerException {
+        if (factory == null) {
+            throw new NullPointerException("factory");
+        }
+        if (request == null) {
+            throw new NullPointerException("request");
+        }
+        if (charset == null) {
+            throw new NullPointerException("charset");
+        }
+        this.request = request;
+        HttpMethod method = request.getMethod();
+        if (method.equals(HttpMethod.POST) || method.equals(HttpMethod.PUT)) {
+            bodyToDecode = true;
+        }
+        this.charset = charset;
+        this.factory = factory;
+        // Fill default values
+        if (this.request.containsHeader(HttpBodyUtil.CONTENT_TYPE)) {
+            checkMultipart(this.request.getHeader(HttpBodyUtil.CONTENT_TYPE));
+        } else {
+            isMultipart = false;
+        }
+        if (!bodyToDecode) {
+            throw new IncompatibleDataDecoderException("No Body to decode");
+        }
+        if (!this.request.isChunked()) {
+            undecodedChunk = this.request.getContent();
+            isLastChunk = true;
+            parseBody();
+        }
+    }
 
     /**
      * states follow
@@ -449,151 +249,24 @@ public class HttpDataDecoder {
         MIXEDFILEUPLOAD,
         MIXEDCLOSEDELIMITER,
         CLOSEDELIMITER,
+        PREEPILOGUE,
         EPILOGUE;
     }
 
     /**
-     * HTTP content type header name.
-     */
-    static final String CONTENT_TYPE = "content-type";
-
-    static final String BOUNDARY = "boundary";
-
-    static final String CHARSET = "charset";
-
-    /**
-     * HTTP content disposition header name.
-     */
-    static final String CONTENT_DISPOSITION = "content-disposition";
-
-    static final String NAME = "name";
-
-    static final String FILENAME = "filename";
-
-    /**
-     * HTTP content length header name.
-     */
-    static final String CONTENT_LENGTH = "content-length";
-
-    /**
-     * Content-disposition value for form data.
-     */
-    static final String FORM_DATA = "form-data";
-
-    /**
-     * Content-disposition value for file attachment.
-     */
-    static final String ATTACHMENT = "attachment";
-
-    /**
-     * HTTP content type header for multipart forms.
-     */
-    static final String MULTIPART_FORM_DATA = "multipart/form-data";
-
-    /**
-     * HTTP content type header for multiple uploads.
-     */
-    static final String MULTIPART_MIXED = "multipart/mixed";
-
-    /**
-     * HTTP content transfer encoding header name.
-     */
-    static final String CONTENT_TRANSFER_ENCODING = "Content-Transfer-Encoding";
-
-    /**
-     * Charset for 8BIT
-     */
-    static final String ISO_8859_1 = "ISO-8859-1";
-
-    /**
-     * Charset for 7BIT
-     */
-    static final String US_ASCII = "US-ASCII";
-
-    /**
-     * Allowed mechanism for multipart
-     * mechanism := "7bit"
-                  / "8bit"
-                  / "binary"
-       Not allowed: "quoted-printable"
-                  / "base64"
-     */
-    static enum TransferEncodingMechanism {
-        /**
-         * Default encoding
-         */
-        BIT7("7bit"),
-        /**
-         * Short lines but not in ASCII - no encoding
-         */
-        BIT8("8bit"),
-        /**
-         * Could be long text not in ASCII - no encoding
-         */
-        BINARY;
-
-        public String value;
-
-        private TransferEncodingMechanism(String value) {
-            this.value = value;
-        }
-
-        private TransferEncodingMechanism() {
-            value = name();
-        }
-
-        @Override
-        public String toString() {
-            return value;
-        }
-    }
-
-    /**
-     * Initialized the internals from a new chunk
-     * @param chunk the new received chunk
-     * @throws UnappropriatedMethodDecodeDataException if the request is not a PUT or POST request
-     */
-    public void newChunk(HttpChunk chunk)
-            throws UnappropriatedMethodDecodeDataException {
-        if (!bodyToDecode) {
-            throw new UnappropriatedMethodDecodeDataException(
-                    "Only Post or Put request are supported for Body decode");
-        }
-        ChannelBuffer chunked = chunk.getContent();
-        if (undecodedChunk == null) {
-            undecodedChunk = chunked;
-        } else {
-            //undecodedChunk = ChannelBuffers.wrappedBuffer(undecodedChunk, chunk.getContent());
-            // less memory usage
-            undecodedChunk = AggregateChannelBuffer.wrappedCheckedBuffer(
-                    undecodedChunk, chunked);
-        }
-        if (chunk.isLast()) {
-            isLastChunk = true;
-        }
-    }
-
-    /**
-     * True if this request is a Multipart request
-     * @return True if this request is a Multipart request
-     */
-    public boolean isMultipart() {
-        return isMultipart;
-    }
-
-    /**
-     * Set first ChannelBuffer either from the request (non chunked), or from the first chunk
-     * of a chunked request.
+     * Check from the request ContentType if this request is a Multipart request.
      * @param contentType
      * @throws ErrorDataDecoderException
      */
     private void checkMultipart(String contentType)
             throws ErrorDataDecoderException {
         // Check if Post using "multipart/form-data; boundary=--89421926422648"
-        String[] initialLine = splitInitialMultipartLine(contentType);
-        if (initialLine[0].toLowerCase().startsWith(MULTIPART_FORM_DATA) &&
-                initialLine[1].toLowerCase().startsWith(BOUNDARY)) {
-            String[] boundary = initialLine[1].split("=");
+        String[] headerContentType = splitHeaderContentType(contentType);
+        if (headerContentType[0].toLowerCase().startsWith(
+                HttpBodyUtil.MULTIPART_FORM_DATA) &&
+                headerContentType[1].toLowerCase().startsWith(
+                        HttpBodyUtil.BOUNDARY)) {
+            String[] boundary = headerContentType[1].split("=");
             if (boundary.length != 2) {
                 throw new ErrorDataDecoderException("Needs a boundary value");
             }
@@ -606,285 +279,261 @@ public class HttpDataDecoder {
     }
 
     /**
-     * This method returns a map of all Attributes from POST or PUT method without Multipart
-     * and once all chunks are received and set using newChunk() method.<br>
-     *
-     * It does not touch the internal buffer, such that it allows however
-     * to use however the hasNext() and next() methods.
-     *
-     * @return the map of Attribute from Body part for POST method only without Multipart
-     * @throws NotEnoughDataDecoderException Need more chunks and
-     *   reset the readerInder to the previous value
-     * @throws UnappropriatedMethodDecodeDataException if the request is not a PUT or POST request
-     *          or if an error occurs
-     * @throws ErrorDataDecoderException if there is a problem with the charset decoding or other errors
+     * True if this request is a Multipart request
+     * @return True if this request is a Multipart request
      */
-    public Map<String, List<Attribute>> getBodyAttributes()
-            throws NotEnoughDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException {
-        if (bodyMapAttributes != null) {
-            return bodyMapAttributes;
-        }
-        setBodyAttributes();
-        return bodyMapAttributes;
+    public boolean isMultipart() {
+        return isMultipart;
     }
 
     /**
-     * This method returns a List of all Attributes from POST or PUT method without Multipart
-     * and once all chunks are received and set using newChunk() method.<br>
+     * This method returns a List of all HttpDatas from body.<br>
      *
-     * It does not touch the internal buffer, such that it allows however
-     * to use however the hasNext() and next() methods.
+     * If chunked, all chunks must have been offered using offer() method.
+     * If not, NotEnoughDataDecoderException will be raised.
      *
-     * @return the list of Attribute from Body part for POST method only without Multipart
-     * @throws NotEnoughDataDecoderException Need more chunks and
-     *   reset the readerInder to the previous value
-     * @throws UnappropriatedMethodDecodeDataException if the request is not a PUT or POST request
-     *          or if an error occurs
-     * @throws ErrorDataDecoderException if there is a problem with the charset decoding or other errors
+     * @return the list of HttpDatas from Body part for POST method
+     * @throws NotEnoughDataDecoderException Need more chunks
      */
-    public List<Attribute> getBodyListAttributes()
-            throws NotEnoughDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException {
-        if (bodyListAttributes != null) {
-            return bodyListAttributes;
+    public List<HttpData> getBodyHttpDatas()
+            throws NotEnoughDataDecoderException {
+        if (!isLastChunk) {
+            throw new NotEnoughDataDecoderException();
         }
-        setBodyAttributes();
-        return bodyListAttributes;
+        return bodyListHttpData;
     }
 
     /**
+     * This method returns a List of all HttpDatas with the given name from body.<br>
+     *
+     * If chunked, all chunks must have been offered using offer() method.
+     * If not, NotEnoughDataDecoderException will be raised.
+
+     * @param name
+     * @return All Body HttpDatas with the given name (ignore case)
+     * @throws NotEnoughDataDecoderException need more chunks
+     */
+    public List<HttpData> getBodyHttpDatas(String name)
+            throws NotEnoughDataDecoderException {
+        if (!isLastChunk) {
+            throw new NotEnoughDataDecoderException();
+        }
+        return bodyMapHttpData.get(name);
+    }
+
+    /**
+     * This method returns the first HttpData with the given name from body.<br>
+     *
+     * If chunked, all chunks must have been offered using offer() method.
+     * If not, NotEnoughDataDecoderException will be raised.
     *
     * @param name
-    * @return the list of Header attributes with the given name (ignore case)
-     * @throws UnappropriatedMethodDecodeDataException
-     * @throws ErrorDataDecoderException
-     * @throws NotEnoughDataDecoderException
+    * @return The first Body HttpData with the given name (ignore case)
+    * @throws NotEnoughDataDecoderException need more chunks
     */
-    public List<Attribute> getBodyAttributes(String name)
-            throws NotEnoughDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException {
-        if (bodyMapAttributes == null) {
-            setBodyAttributes();
+    public HttpData getBodyHttpData(String name)
+            throws NotEnoughDataDecoderException {
+        if (!isLastChunk) {
+            throw new NotEnoughDataDecoderException();
         }
-        return bodyMapAttributes.get(name.toLowerCase());
-    }
-
-    /**
-     *
-     * @param name
-     * @return the first Header attributes with the given name (ignore case)
-     * @throws UnappropriatedMethodDecodeDataException
-     * @throws ErrorDataDecoderException
-     * @throws NotEnoughDataDecoderException
-     */
-    public Attribute getBodyAttribute(String name)
-            throws NotEnoughDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException {
-        if (bodyMapAttributes == null) {
-            setBodyAttributes();
-        }
-        List<Attribute> list = bodyMapAttributes.get(name.toLowerCase());
-        if (list.isEmpty()) {
-            return null;
-        } else {
+        List<HttpData> list = bodyMapHttpData.get(name);
+        if (list != null) {
             return list.get(0);
         }
+        return null;
     }
 
     /**
-    *
-    * @param name
-    * @return the value of the first Header attributes with the given name (ignore case)
-     * @throws UnappropriatedMethodDecodeDataException
-     * @throws ErrorDataDecoderException
-     * @throws NotEnoughDataDecoderException
-    */
-    public String getBodyAttributeValue(String name)
-            throws NotEnoughDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException {
-        if (bodyMapAttributes == null) {
-            setBodyAttributes();
-        }
-        List<Attribute> list = bodyMapAttributes.get(name.toLowerCase());
-        if (list.isEmpty()) {
-            return null;
-        } else {
-            return list.get(0).getValue();
-        }
-    }
-
-    /**
-     * This method fill the map of all Attributes from POST or PUT method without Multipart
-     * and once all chunks are received and set using newChunk() method.<br>
-     *
-     * It does not touch the internal buffer, such that it allows however
-     * to use however the hasNext() and next() methods.
-     *
-     * @throws NotEnoughDataDecoderException Need more chunks and
-     *   reset the readerInder to the previous value
-     * @throws ErrorDataDecoderException if there is a problem with the charset decoding or other errors
-     * @throws UnappropriatedMethodDecodeDataException  if the request is not a PUT or POST request
-     *          or if an error occurs
+     * Initialized the internals from a new chunk
+     * @param chunk the new received chunk
+     * @throws ErrorDataDecoderException if there is a problem with the charset decoding or
+     *          other errors
      */
-    private void setBodyAttributes() throws NotEnoughDataDecoderException,
-            ErrorDataDecoderException, UnappropriatedMethodDecodeDataException {
-        // Is a POST or PUT method
-        if (!bodyToDecode) {
-            throw new UnappropriatedMethodDecodeDataException(
-                    "Only POST request without Multipart are supported for getBodyAttributes");
+    public void offer(HttpChunk chunk) throws ErrorDataDecoderException {
+        ChannelBuffer chunked = chunk.getContent();
+        if (undecodedChunk == null) {
+            undecodedChunk = chunked;
+        } else {
+            //undecodedChunk = ChannelBuffers.wrappedBuffer(undecodedChunk, chunk.getContent());
+            // less memory usage
+            undecodedChunk = AggregateChannelBuffer.wrappedCheckedBuffer(
+                    undecodedChunk, chunked);
         }
-        // Is it not a Multipart
-        if (isMultipart) {
-            throw new UnappropriatedMethodDecodeDataException(
-                    "Only POST request without Multipart are supported for getBodyAttributes");
+        if (chunk.isLast()) {
+            isLastChunk = true;
         }
-        // Last chunk already received
-        if (!isLastChunk) {
-            throw new NotEnoughDataDecoderException(
-                    "All chunks must have been received for getBodyAttributes");
-        }
-        String body = undecodedChunk.toString(charset);
-        Map<String, List<Attribute>> mapAttributes = new HashMap<String, List<Attribute>>();
-        List<Attribute> newbodyAttributes = new ArrayList<Attribute>();
-        decodeListAttribute(newbodyAttributes, mapAttributes, body);
-        bodyListAttributes = newbodyAttributes;
-        bodyMapAttributes = mapAttributes;
+        parseBody();
     }
 
     /**
-     * True if at current status, there is a decoded HttpData from the Body.
+     * True if at current status, there is an available decoded HttpData from the Body.
      *
      * This method works for chunked and not chunked request.
-     * However, once this function is called, the getBodyAttributes could not be called again.
      *
      * @return True if at current status, there is a decoded HttpData
-     * @throws NotEnoughDataDecoderException Need more chunks
      * @throws EndOfDataDecoderException No more data will be available
-     * @throws UnappropriatedMethodDecodeDataException if the request is not a PUT or POST request
-     *          or if an error occurs
-     * @throws ErrorDataDecoderException if there is a problem with the charset decoding or other errors
      */
-    public boolean hasNext() throws NotEnoughDataDecoderException,
-            EndOfDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException {
-        if (!bodyToDecode) {
-            throw new UnappropriatedMethodDecodeDataException(
-                    "Only Post or Put request are supported for Body decode");
-        }
+    public boolean hasNext() throws EndOfDataDecoderException {
         if (currentStatus == MultiPartStatus.EPILOGUE) {
-            throw new EndOfDataDecoderException();
+            // OK except if end of list
+            if (bodyListHttpDataRank >= bodyListHttpData.size()) {
+                throw new EndOfDataDecoderException();
+            }
         }
-        if (currentHttpData != null) {
-            // still one decoded not get
-            return true;
-        }
-        if (undecodedChunk == null || undecodedChunk.readableBytes() == 0) {
-            // nothing to decode
-            return false;
-        }
-        currentHttpData = decodeBody();
-        return currentHttpData != null;
+        return (bodyListHttpData.size() > 0 &&
+                bodyListHttpDataRank < bodyListHttpData.size());
     }
 
     /**
      * Returns the next available HttpData or null if, at the time it is called, there is no more
-     * available HttpData. A subsequent call to newChunk(httpChunk) could enable more data.
+     * available HttpData. A subsequent call to offer(httpChunk) could enable more data.
      *
      * @return the next available HttpData or null if none
-     * @throws NotEnoughDataDecoderException Need more chunks
      * @throws EndOfDataDecoderException No more data will be available
-     * @throws UnappropriatedMethodDecodeDataException if the request is not a PUT or POST request
-     *          or if an error occurs
-     * @throws ErrorDataDecoderException if there is a problem with the charset decoding or other errors
      */
-    public HttpData next() throws NotEnoughDataDecoderException,
-            EndOfDataDecoderException, UnappropriatedMethodDecodeDataException,
-            ErrorDataDecoderException {
-        if (!bodyToDecode) {
-            throw new UnappropriatedMethodDecodeDataException(
-                    "Only Post or Put request are supported for Body decode");
+    public HttpData next() throws EndOfDataDecoderException {
+        if (hasNext()) {
+            return bodyListHttpData.get(bodyListHttpDataRank++);
         }
-        HttpData data = currentHttpData;
-        if (currentHttpData != null) {
-            // has already get a decode one
-            currentHttpData = null;
-        } else {
-            // force get next (may be null)
-            data = decodeBody();
-        }
-        return data;
-    }
-
-    // inspired from QueryStringDecoder
-    private static final Pattern PARAM_PATTERN = Pattern
-            .compile("([^=]*)=([^&]*)&*");
-
-    /**
-     * Decode as a List and as a map (one of them could be null)
-     * @param list
-     * @param map
-     * @param arg
-     * @throws ErrorDataDecoderException
-     */
-    private void decodeListAttribute(List<Attribute> list,
-            Map<String, List<Attribute>> map, String arg)
-            throws ErrorDataDecoderException {
-        int pathEndPos = arg.indexOf('?');
-        if (pathEndPos < 0) {
-            decodeListParams(list, map, arg);
-        } else {
-            decodeListParams(list, map, arg.substring(pathEndPos + 1));
-        }
+        return null;
     }
 
     /**
-     * Decode as a List and as a map (one of them could be null)
-     * @param list
-     * @param map
-     * @param s
-     * @throws ErrorDataDecoderException
+     * This method will parse as much as possible data and fill the list and map
+     * @throws ErrorDataDecoderException if there is a problem with the charset decoding or
+     *          other errors
      */
-    private void decodeListParams(List<Attribute> list,
-            Map<String, List<Attribute>> map, String s)
-            throws ErrorDataDecoderException {
-        Matcher m = PARAM_PATTERN.matcher(s);
-        int pos = 0;
-        while (m.find(pos)) {
-            pos = m.end();
-            String key = decodeComponent(m.group(1), charset).toLowerCase();
-            String value = decodeComponent(m.group(2), charset);
-            Attribute attribute;
-            try {
-                attribute = factory.createAttribute(key, value);
-            } catch (NullPointerException e) {
-                throw new ErrorDataDecoderException(e);
-            } catch (IllegalArgumentException e) {
-                throw new ErrorDataDecoderException(e);
+    private void parseBody() throws ErrorDataDecoderException {
+        if (currentStatus == MultiPartStatus.PREEPILOGUE ||
+                currentStatus == MultiPartStatus.EPILOGUE) {
+            if (isLastChunk) {
+                currentStatus = MultiPartStatus.EPILOGUE;
             }
-            if (map != null) {
-                List<Attribute> attrs = map.get(key);
-                if (attrs == null) {
-                    attrs = new ArrayList<Attribute>(1);
-                    map.put(key, attrs);
+            return;
+        }
+        if (isMultipart) {
+            parseBodyMultipart();
+        } else {
+            parseBodyAttributes();
+        }
+    }
+
+    /**
+     * Utility function to add a new decoded data
+     * @param data
+     */
+    private void addHttpData(HttpData data) {
+        if (data == null) {
+            return;
+        }
+        List<HttpData> datas = bodyMapHttpData.get(data.getName());
+        if (datas == null) {
+            datas = new ArrayList<HttpData>(1);
+            bodyMapHttpData.put(data.getName(), datas);
+        }
+        datas.add(data);
+        bodyListHttpData.add(data);
+    }
+
+    /**
+      * This method fill the map and list with as much Attribute from Body.
+      *
+      * @throws ErrorDataDecoderException if there is a problem with the charset decoding or
+      *          other errors
+      */
+    private void parseBodyAttributes() throws ErrorDataDecoderException {
+        int firstpos = undecodedChunk.readerIndex();
+        int currentpos = firstpos;
+        int equalpos = 0;
+        int ampersandpos = 0;
+        int status = 0;
+        boolean contRead = true;
+        try {
+            while (undecodedChunk.readable() && contRead) {
+                char read = (char) undecodedChunk.readUnsignedByte();
+                currentpos++;
+                switch (status) {
+                case 0:// search '='
+                    if (read == '=') {
+                        status = 1;
+                        equalpos = currentpos-1;
+                    }
+                    break;
+                case 1:// search '&' or end of line
+                    if (read == '&') {
+                        status = 0;
+                        ampersandpos = currentpos-1;
+                        readAttribute(firstpos, equalpos, equalpos+1, ampersandpos);
+                        firstpos = currentpos;
+                        contRead = true;
+                    } else if (read == HttpCodecUtil.CR) {
+                        if (undecodedChunk.readable()) {
+                            read = (char) undecodedChunk.readUnsignedByte();
+                            currentpos++;
+                            if (read == HttpCodecUtil.LF) {
+                                status = 0;
+                                ampersandpos = currentpos-2;
+                                readAttribute(firstpos, equalpos, equalpos+1, ampersandpos);
+                                firstpos = currentpos;
+                                contRead = false;
+                            }
+                        }
+                    } else if (read == HttpCodecUtil.LF) {
+                        status = 0;
+                        ampersandpos = currentpos-1;
+                        readAttribute(firstpos, equalpos, equalpos+1, ampersandpos);
+                        firstpos = currentpos;
+                        contRead = false;
+                    }
+                    break;
                 }
-                attrs.add(attribute);
             }
-            if (list != null) {
-                list.add(attribute);
-            }
+        } catch (ErrorDataDecoderException e) {
+            // error while decoding
+            undecodedChunk.readerIndex(firstpos);
+            throw e;
+        }
+        if (isLastChunk) {
+            // special case
+            ampersandpos = currentpos;
+            readAttribute(firstpos, equalpos, equalpos+1, ampersandpos);
+            firstpos = currentpos;
+            currentStatus = MultiPartStatus.EPILOGUE;
+            return;
+        }
+        if (contRead) {
+            // reset index
+            undecodedChunk.readerIndex(firstpos);
+        } else {
+            // end of line so keep index
         }
     }
 
     /**
-     * Decode as a Map
-     * @param map
-     * @param arg
+     * Get an attribute from not multipart body
+     * @param startKey
+     * @param endKey
+     * @param startValue
+     * @param endValue
      * @throws ErrorDataDecoderException
      */
-    private void decodeUriAttribute(Map<String, List<Attribute>> map, String arg)
-            throws ErrorDataDecoderException {
-        decodeListAttribute(null, map, arg);
+    private void readAttribute(int startKey, int endKey, int startValue, int endValue)
+        throws ErrorDataDecoderException {
+        String key = decodeAttribute(
+                undecodedChunk.toString(startKey, endKey-startKey, charset),
+                charset);
+        String value = decodeAttribute(
+                undecodedChunk.toString(startValue, endValue-startValue, charset),
+                charset);
+        Attribute attribute;
+        try {
+            attribute = factory.createAttribute(key, value);
+        } catch (NullPointerException e) {
+            throw new ErrorDataDecoderException(e);
+        } catch (IllegalArgumentException e) {
+            throw new ErrorDataDecoderException(e);
+        }
+        addHttpData(attribute);
     }
 
     /**
@@ -894,7 +543,7 @@ public class HttpDataDecoder {
      * @return the decoded component
      * @throws ErrorDataDecoderException
      */
-    private static String decodeComponent(String s, String charset)
+    private static String decodeAttribute(String s, String charset)
             throws ErrorDataDecoderException {
         if (s == null) {
             return "";
@@ -907,37 +556,23 @@ public class HttpDataDecoder {
     }
 
     /**
-     * Decode the next data from the body (multipart or not)
-     * @return the next decoded HttpData
-     * @throws EndOfDataDecoderException if the end of the decode operation is reached
-     * @throws NotEnoughDataDecoderException Need more chunks
-     * @throws UnappropriatedMethodDecodeDataException
-     * @throws ErrorDataDecoderException if an error occurs during decode
+     * Parse the Body for multipart
+     *
+     * @throws ErrorDataDecoderException if there is a problem with the charset decoding or other errors
      */
-    private HttpData decodeBody() throws EndOfDataDecoderException,
-            NotEnoughDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException {
-        if (isMultipart) {
-            return decodeMultipart(currentStatus);
-        } else {
-            // decode standard Body without Multipart
-            // does only work when all chunks are received
-            if (isLastChunk) {
-                if (bodyIteratorAttributes == null) {
-                    if (bodyListAttributes == null) {
-                        setBodyAttributes();
-                    }
-                    bodyIteratorAttributes = bodyListAttributes.listIterator();
-                }
-                if (bodyIteratorAttributes.hasNext()) {
-                    return bodyIteratorAttributes.next();
-                } else {
-                    // end of iterator
-                    throw new EndOfDataDecoderException();
-                }
-            } else {
-                return null;
+    private void parseBodyMultipart() throws ErrorDataDecoderException {
+        if (undecodedChunk == null || undecodedChunk.readableBytes() == 0) {
+            // nothing to decode
+            return;
+        }
+        HttpData data = decodeMultipart(currentStatus);
+        while (data != null) {
+            addHttpData(data);
+            if (currentStatus == MultiPartStatus.PREEPILOGUE ||
+                    currentStatus == MultiPartStatus.EPILOGUE) {
+                break;
             }
+            data = decodeMultipart(currentStatus);
         }
     }
 
@@ -955,25 +590,22 @@ public class HttpDataDecoder {
      *
      * @param state
      * @return the next decoded HttpData or null if none until now.
-     * @throws EndOfDataDecoderException when there is no more data to decode
      * @throws ErrorDataDecoderException if an error occurs
-     * @throws UnappropriatedMethodDecodeDataException
      */
     private HttpData decodeMultipart(MultiPartStatus state)
-            throws EndOfDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException {
+            throws ErrorDataDecoderException {
         switch (state) {
         case NOTSTARTED:
-            throw new UnappropriatedMethodDecodeDataException(
+            throw new ErrorDataDecoderException(
                     "Should not be called with the current status");
         case PREAMBLE:
             // Content-type: multipart/form-data, boundary=AaB03x
-            throw new UnappropriatedMethodDecodeDataException(
+            throw new ErrorDataDecoderException(
                     "Should not be called with the current status");
         case HEADERDELIMITER: {
             // --AaB03x or --AaB03x--
             return findMultipartDelimiter(multipartDataBoundary,
-                    MultiPartStatus.DISPOSITION, MultiPartStatus.EPILOGUE);
+                    MultiPartStatus.DISPOSITION, MultiPartStatus.PREEPILOGUE);
         }
         case DISPOSITION: {
             //  content-disposition: form-data; name="field1"
@@ -990,11 +622,13 @@ public class HttpDataDecoder {
         case FIELD: {
             // Now get value according to Content-Type and Charset
             String localCharset = charset;
-            Attribute charsetAttribute = currentFieldAttributes.get(CHARSET);
+            Attribute charsetAttribute = currentFieldAttributes
+                    .get(HttpBodyUtil.CHARSET);
             if (charsetAttribute != null) {
                 localCharset = charsetAttribute.getValue();
             }
-            Attribute nameAttribute = currentFieldAttributes.get(NAME);
+            Attribute nameAttribute = currentFieldAttributes
+                    .get(HttpBodyUtil.NAME);
             // load data
             String finalValue;
             try {
@@ -1035,9 +669,10 @@ public class HttpDataDecoder {
             // eventually restart from existing FileUpload
             return getFileUpload(multipartMixedBoundary);
         }
+        case PREEPILOGUE:
+            return null;
         case EPILOGUE:
-            // should throw endofdecode
-            throw new EndOfDataDecoderException();
+            return null;
         default:
             throw new ErrorDataDecoderException("Shouldn't reach here.");
         }
@@ -1049,18 +684,15 @@ public class HttpDataDecoder {
      * @param dispositionStatus the next status if the delimiter is a start
      * @param closeDelimiterStatus the next status if the delimiter is a close delimiter
      * @return the next HttpData if any
-     * @throws EndOfDataDecoderException
      * @throws ErrorDataDecoderException
-     * @throws UnappropriatedMethodDecodeDataException
      */
     private HttpData findMultipartDelimiter(String delimiter,
             MultiPartStatus dispositionStatus,
             MultiPartStatus closeDelimiterStatus)
-            throws EndOfDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException {
+            throws ErrorDataDecoderException {
         // --AaB03x or --AaB03x--
         int readerIndex = undecodedChunk.readerIndex();
-        HttpCodecUtil.skipControlCharacters(undecodedChunk);
+        HttpBodyUtil.skipControlCharacters(undecodedChunk);
         skipOneLine();
         String newline;
         try {
@@ -1090,20 +722,18 @@ public class HttpDataDecoder {
     /**
      * Find the next Disposition
      * @return the next HttpData if any
-     * @throws EndOfDataDecoderException
      * @throws ErrorDataDecoderException
-     * @throws UnappropriatedMethodDecodeDataException
      */
     private HttpData findMultipartDisposition()
-            throws EndOfDataDecoderException, ErrorDataDecoderException,
-            UnappropriatedMethodDecodeDataException {
+            throws ErrorDataDecoderException {
         int readerIndex = undecodedChunk.readerIndex();
         if (currentStatus == MultiPartStatus.DISPOSITION) {
-            currentFieldAttributes = new HashMap<String, Attribute>();
+            currentFieldAttributes = new TreeMap<String, Attribute>(
+                    CaseIgnoringComparator.INSTANCE);
         }
         // read many lines until empty line with newline found! Store all data
         while (!skipOneLine()) {
-            HttpCodecUtil.skipControlCharacters(undecodedChunk);
+            HttpBodyUtil.skipControlCharacters(undecodedChunk);
             String newline;
             try {
                 newline = readLine();
@@ -1112,12 +742,14 @@ public class HttpDataDecoder {
                 return null;
             }
             String[] contents = splitMultipartHeader(newline);
-            if (contents[0].equalsIgnoreCase(CONTENT_DISPOSITION)) {
+            if (contents[0].equalsIgnoreCase(HttpBodyUtil.CONTENT_DISPOSITION)) {
                 boolean checkSecondArg = false;
                 if (currentStatus == MultiPartStatus.DISPOSITION) {
-                    checkSecondArg = contents[1].equalsIgnoreCase(FORM_DATA);
+                    checkSecondArg = contents[1]
+                            .equalsIgnoreCase(HttpBodyUtil.FORM_DATA);
                 } else {
-                    checkSecondArg = contents[1].equalsIgnoreCase(ATTACHMENT);
+                    checkSecondArg = contents[1]
+                            .equalsIgnoreCase(HttpBodyUtil.ATTACHMENT);
                 }
                 if (checkSecondArg) {
                     // read next values and store them in the list as Attribute
@@ -1125,8 +757,7 @@ public class HttpDataDecoder {
                         String[] values = contents[i].split("=");
                         Attribute attribute;
                         try {
-                            attribute = factory.createAttribute(values[0]
-                                    .toLowerCase().trim(),
+                            attribute = factory.createAttribute(values[0].trim(),
                                     cleanString(values[1]));
                         } catch (NullPointerException e) {
                             throw new ErrorDataDecoderException(e);
@@ -1137,33 +768,37 @@ public class HttpDataDecoder {
                                 attribute);
                     }
                 }
-            } else if (contents[0].equalsIgnoreCase(CONTENT_TRANSFER_ENCODING)) {
+            } else if (contents[0]
+                    .equalsIgnoreCase(HttpBodyUtil.CONTENT_TRANSFER_ENCODING)) {
                 Attribute attribute;
                 try {
-                    attribute = factory
-                            .createAttribute(CONTENT_TRANSFER_ENCODING,
-                                    cleanString(contents[1]));
-                } catch (NullPointerException e) {
-                    throw new ErrorDataDecoderException(e);
-                } catch (IllegalArgumentException e) {
-                    throw new ErrorDataDecoderException(e);
-                }
-                currentFieldAttributes
-                        .put(CONTENT_TRANSFER_ENCODING, attribute);
-            } else if (contents[0].equalsIgnoreCase(CONTENT_LENGTH)) {
-                Attribute attribute;
-                try {
-                    attribute = factory.createAttribute(CONTENT_LENGTH,
+                    attribute = factory.createAttribute(
+                            HttpBodyUtil.CONTENT_TRANSFER_ENCODING,
                             cleanString(contents[1]));
                 } catch (NullPointerException e) {
                     throw new ErrorDataDecoderException(e);
                 } catch (IllegalArgumentException e) {
                     throw new ErrorDataDecoderException(e);
                 }
-                currentFieldAttributes.put(CONTENT_LENGTH, attribute);
-            } else if (contents[0].equalsIgnoreCase(CONTENT_TYPE)) {
+                currentFieldAttributes.put(
+                        HttpBodyUtil.CONTENT_TRANSFER_ENCODING, attribute);
+            } else if (contents[0]
+                    .equalsIgnoreCase(HttpBodyUtil.CONTENT_LENGTH)) {
+                Attribute attribute;
+                try {
+                    attribute = factory.createAttribute(
+                            HttpBodyUtil.CONTENT_LENGTH,
+                            cleanString(contents[1]));
+                } catch (NullPointerException e) {
+                    throw new ErrorDataDecoderException(e);
+                } catch (IllegalArgumentException e) {
+                    throw new ErrorDataDecoderException(e);
+                }
+                currentFieldAttributes.put(HttpBodyUtil.CONTENT_LENGTH,
+                        attribute);
+            } else if (contents[0].equalsIgnoreCase(HttpBodyUtil.CONTENT_TYPE)) {
                 // Take care of possible "multipart/mixed"
-                if (contents[1].equalsIgnoreCase(MULTIPART_MIXED)) {
+                if (contents[1].equalsIgnoreCase(HttpBodyUtil.MULTIPART_MIXED)) {
                     if (currentStatus == MultiPartStatus.DISPOSITION) {
                         String[] values = contents[2].split("=");
                         multipartMixedBoundary = "--" + values[1];
@@ -1175,23 +810,25 @@ public class HttpDataDecoder {
                     }
                 } else {
                     for (int i = 1; i < contents.length; i ++) {
-                        if (contents[i].toLowerCase().startsWith(CHARSET)) {
+                        if (contents[i].toLowerCase().startsWith(
+                                HttpBodyUtil.CHARSET)) {
                             String[] values = contents[i].split("=");
                             Attribute attribute;
                             try {
-                                attribute = factory.createAttribute(CHARSET,
+                                attribute = factory.createAttribute(
+                                        HttpBodyUtil.CHARSET,
                                         cleanString(values[1]));
                             } catch (NullPointerException e) {
                                 throw new ErrorDataDecoderException(e);
                             } catch (IllegalArgumentException e) {
                                 throw new ErrorDataDecoderException(e);
                             }
-                            currentFieldAttributes.put(CHARSET, attribute);
+                            currentFieldAttributes.put(HttpBodyUtil.CHARSET,
+                                    attribute);
                         } else {
                             Attribute attribute;
                             try {
-                                attribute = factory.createAttribute(contents[0]
-                                        .toLowerCase().trim(),
+                                attribute = factory.createAttribute(contents[0].trim(),
                                         cleanString(contents[i]));
                             } catch (NullPointerException e) {
                                 throw new ErrorDataDecoderException(e);
@@ -1209,7 +846,8 @@ public class HttpDataDecoder {
             }
         }
         // Is it a FileUpload
-        Attribute filenameAttribute = currentFieldAttributes.get(FILENAME);
+        Attribute filenameAttribute = currentFieldAttributes
+                .get(HttpBodyUtil.FILENAME);
         if (currentStatus == MultiPartStatus.DISPOSITION) {
             if (filenameAttribute != null) {
                 // FileUpload
@@ -1246,36 +884,44 @@ public class HttpDataDecoder {
         // eventually restart from existing FileUpload
         // Now get value according to Content-Type and Charset
         Attribute encoding = currentFieldAttributes
-                .get(CONTENT_TRANSFER_ENCODING);
+                .get(HttpBodyUtil.CONTENT_TRANSFER_ENCODING);
         String localCharset = charset;
+        // Default
+        TransferEncodingMechanism mechanism = TransferEncodingMechanism.BIT7;
         if (encoding != null) {
             String code = encoding.getValue().toLowerCase();
-            if (code.equals(TransferEncodingMechanism.BIT7)) {
-                localCharset = US_ASCII;
-            } else if (code.equals(TransferEncodingMechanism.BIT8)) {
-                localCharset = ISO_8859_1;
-            } else if (code.equals(TransferEncodingMechanism.BINARY)) {
+            if (code.equals(HttpBodyUtil.TransferEncodingMechanism.BIT7)) {
+                localCharset = HttpBodyUtil.US_ASCII;
+            } else if (code.equals(HttpBodyUtil.TransferEncodingMechanism.BIT8)) {
+                localCharset = HttpBodyUtil.ISO_8859_1;
+                mechanism = TransferEncodingMechanism.BIT8;
+            } else if (code
+                    .equals(HttpBodyUtil.TransferEncodingMechanism.BINARY)) {
                 // no real charset, so let the default
+                mechanism = TransferEncodingMechanism.BINARY;
             } else {
                 throw new ErrorDataDecoderException(
                         "TransferEncoding Unknown: " + code);
             }
         }
-        Attribute charsetAttribute = currentFieldAttributes.get(CHARSET);
+        Attribute charsetAttribute = currentFieldAttributes
+                .get(HttpBodyUtil.CHARSET);
         if (charsetAttribute != null) {
             localCharset = charsetAttribute.getValue();
         }
         if (currentFileUpload == null) {
-            Attribute filenameAttribute = currentFieldAttributes.get(FILENAME);
-            Attribute nameAttribute = currentFieldAttributes.get(NAME);
+            Attribute filenameAttribute = currentFieldAttributes
+                    .get(HttpBodyUtil.FILENAME);
+            Attribute nameAttribute = currentFieldAttributes
+                    .get(HttpBodyUtil.NAME);
             Attribute contentTypeAttribute = currentFieldAttributes
-                    .get(CONTENT_TYPE);
+                    .get(HttpBodyUtil.CONTENT_TYPE);
             if (contentTypeAttribute == null) {
                 throw new ErrorDataDecoderException(
                         "Content-Type is absent but required");
             }
             Attribute lengthAttribute = currentFieldAttributes
-                    .get(CONTENT_LENGTH);
+                    .get(HttpBodyUtil.CONTENT_LENGTH);
             long size = 0L;
             try {
                 size = lengthAttribute != null? Long.parseLong(lengthAttribute
@@ -1285,7 +931,8 @@ public class HttpDataDecoder {
             try {
                 currentFileUpload = factory.createFileUpload(nameAttribute
                         .getValue(), filenameAttribute.getValue(),
-                        contentTypeAttribute.getValue(), localCharset, size);
+                        contentTypeAttribute.getValue(), mechanism.value,
+                        localCharset, size);
             } catch (NullPointerException e) {
                 throw new ErrorDataDecoderException(e);
             } catch (IllegalArgumentException e) {
@@ -1359,11 +1006,11 @@ public class HttpDataDecoder {
      * Remove all Attributes that should be cleaned between two FileUpload in Mixed mode
      */
     private void cleanMixedAttributes() {
-        currentFieldAttributes.remove(CHARSET);
-        currentFieldAttributes.remove(CONTENT_LENGTH);
-        currentFieldAttributes.remove(CONTENT_TRANSFER_ENCODING);
-        currentFieldAttributes.remove(CONTENT_TYPE);
-        currentFieldAttributes.remove(FILENAME);
+        currentFieldAttributes.remove(HttpBodyUtil.CHARSET);
+        currentFieldAttributes.remove(HttpBodyUtil.CONTENT_LENGTH);
+        currentFieldAttributes.remove(HttpBodyUtil.CONTENT_TRANSFER_ENCODING);
+        currentFieldAttributes.remove(HttpBodyUtil.CONTENT_TYPE);
+        currentFieldAttributes.remove(HttpBodyUtil.FILENAME);
     }
 
     /**
@@ -1627,22 +1274,22 @@ public class HttpDataDecoder {
      * @param sb
      * @return the array of 2 Strings
      */
-    private String[] splitInitialMultipartLine(String sb) {
+    private String[] splitHeaderContentType(String sb) {
         int size = sb.length();
         int aStart;
         int aEnd;
         int bStart;
         int bEnd;
-        aStart = HttpCodecUtil.findNonWhitespace(sb, 0);
-        aEnd = HttpCodecUtil.findWhitespace(sb, aStart);
+        aStart = HttpBodyUtil.findNonWhitespace(sb, 0);
+        aEnd = HttpBodyUtil.findWhitespace(sb, aStart);
         if (aEnd >= size) {
             return new String[] { sb, "" };
         }
         if (sb.charAt(aEnd) == ';') {
             aEnd --;
         }
-        bStart = HttpCodecUtil.findNonWhitespace(sb, aEnd);
-        bEnd = HttpCodecUtil.findEndOfString(sb);
+        bStart = HttpBodyUtil.findNonWhitespace(sb, aEnd);
+        bEnd = HttpBodyUtil.findEndOfString(sb);
         return new String[] { sb.substring(aStart, aEnd),
                 sb.substring(bStart, bEnd) };
     }
@@ -1660,7 +1307,7 @@ public class HttpDataDecoder {
         int colonEnd;
         int valueStart;
         int valueEnd;
-        nameStart = HttpCodecUtil.findNonWhitespace(sb, 0);
+        nameStart = HttpBodyUtil.findNonWhitespace(sb, 0);
         for (nameEnd = nameStart; nameEnd < sb.length(); nameEnd ++) {
             char ch = sb.charAt(nameEnd);
             if (ch == ':' || Character.isWhitespace(ch)) {
@@ -1673,8 +1320,8 @@ public class HttpDataDecoder {
                 break;
             }
         }
-        valueStart = HttpCodecUtil.findNonWhitespace(sb, colonEnd);
-        valueEnd = HttpCodecUtil.findEndOfString(sb);
+        valueStart = HttpBodyUtil.findNonWhitespace(sb, colonEnd);
+        valueEnd = HttpBodyUtil.findEndOfString(sb);
         headers.add(sb.substring(nameStart, nameEnd));
         String svalue = sb.substring(valueStart, valueEnd);
         String[] values = null;
@@ -1804,7 +1451,7 @@ public class HttpDataDecoder {
      * @author frederic bregier
      *
      */
-    public class UnappropriatedMethodDecodeDataException extends Exception {
+    public class IncompatibleDataDecoderException extends Exception {
         /**
          *
          */
@@ -1813,21 +1460,21 @@ public class HttpDataDecoder {
         /**
          *
          */
-        public UnappropriatedMethodDecodeDataException() {
+        public IncompatibleDataDecoderException() {
             super();
         }
 
         /**
          * @param arg0
          */
-        public UnappropriatedMethodDecodeDataException(String arg0) {
+        public IncompatibleDataDecoderException(String arg0) {
             super(arg0);
         }
 
         /**
          * @param arg0
          */
-        public UnappropriatedMethodDecodeDataException(Throwable arg0) {
+        public IncompatibleDataDecoderException(Throwable arg0) {
             super(arg0);
         }
 
@@ -1835,8 +1482,7 @@ public class HttpDataDecoder {
          * @param arg0
          * @param arg1
          */
-        public UnappropriatedMethodDecodeDataException(String arg0,
-                Throwable arg1) {
+        public IncompatibleDataDecoderException(String arg0, Throwable arg1) {
             super(arg0, arg1);
         }
     }

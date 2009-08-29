@@ -40,15 +40,16 @@ public class MixteFileUpload implements FileUpload {
     private long definedSize = 0;
 
     public MixteFileUpload(String name, String filename, String contentType,
-            String charset, long size, long limitSize)
-            throws NullPointerException, IllegalArgumentException {
+            String contentTransferEncoding, String charset, long size,
+            long limitSize) throws NullPointerException,
+            IllegalArgumentException {
         this.limitSize = limitSize;
         if (size > this.limitSize) {
             fileUpload = new DiskFileUpload(name, filename, contentType,
-                    charset, size);
+                    contentTransferEncoding, charset, size);
         } else {
-            fileUpload = new DefaultFileUpload(name, filename, contentType,
-                    charset, size);
+            fileUpload = new MemoryFileUpload(name, filename, contentType,
+                    contentTransferEncoding, charset, size);
         }
         definedSize = size;
     }
@@ -58,12 +59,14 @@ public class MixteFileUpload implements FileUpload {
      */
     public void addContent(ChannelBuffer buffer, boolean last)
             throws IOException {
-        if (fileUpload instanceof DefaultFileUpload) {
+        if (fileUpload instanceof MemoryFileUpload) {
             if (fileUpload.length() + buffer.readableBytes() > limitSize) {
                 DiskFileUpload diskFileUpload = new DiskFileUpload(fileUpload
                         .getName(), fileUpload.getFilename(), fileUpload
-                        .getContentType(), fileUpload.getCharset(), definedSize);
-                diskFileUpload.addContent(((DefaultFileUpload) fileUpload)
+                        .getContentType(), fileUpload
+                        .getContentTransferEncoding(), fileUpload.getCharset(),
+                        definedSize);
+                diskFileUpload.addContent(((MemoryFileUpload) fileUpload)
                         .getChannelBuffer(), false);
                 fileUpload = diskFileUpload;
             }
@@ -104,6 +107,14 @@ public class MixteFileUpload implements FileUpload {
      */
     public String getContentType() {
         return fileUpload.getContentType();
+    }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.codec.http2.FileUpload#getContentTransferEncoding()
+     */
+    @Override
+    public String getContentTransferEncoding() {
+        return fileUpload.getContentTransferEncoding();
     }
 
     /* (non-Javadoc)
@@ -167,11 +178,13 @@ public class MixteFileUpload implements FileUpload {
      */
     public void setContent(ChannelBuffer buffer) throws IOException {
         if (buffer.readableBytes() > limitSize) {
-            if (fileUpload instanceof DefaultFileUpload) {
+            if (fileUpload instanceof MemoryFileUpload) {
                 // change to Disk
                 DiskFileUpload diskFileUpload = new DiskFileUpload(fileUpload
                         .getName(), fileUpload.getFilename(), fileUpload
-                        .getContentType(), fileUpload.getCharset(), definedSize);
+                        .getContentType(), fileUpload
+                        .getContentTransferEncoding(), fileUpload.getCharset(),
+                        definedSize);
                 fileUpload = diskFileUpload;
             }
         }
@@ -183,11 +196,13 @@ public class MixteFileUpload implements FileUpload {
      */
     public void setContent(File file) throws IOException {
         if (file.length() > limitSize) {
-            if (fileUpload instanceof DefaultFileUpload) {
+            if (fileUpload instanceof MemoryFileUpload) {
                 // change to Disk
                 DiskFileUpload diskFileUpload = new DiskFileUpload(fileUpload
                         .getName(), fileUpload.getFilename(), fileUpload
-                        .getContentType(), fileUpload.getCharset(), definedSize);
+                        .getContentType(), fileUpload
+                        .getContentTransferEncoding(), fileUpload.getCharset(),
+                        definedSize);
                 fileUpload = diskFileUpload;
             }
         }
@@ -199,6 +214,14 @@ public class MixteFileUpload implements FileUpload {
      */
     public void setContentType(String contentType) {
         fileUpload.setContentType(contentType);
+    }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.codec.http2.FileUpload#setContentTransferEncoding(java.lang.String)
+     */
+    @Override
+    public void setContentTransferEncoding(String contentTransferEncoding) {
+        fileUpload.setContentTransferEncoding(contentTransferEncoding);
     }
 
     /* (non-Javadoc)

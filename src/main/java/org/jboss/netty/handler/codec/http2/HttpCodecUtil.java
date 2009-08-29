@@ -22,8 +22,6 @@
  */
 package org.jboss.netty.handler.codec.http2;
 
-import org.jboss.netty.buffer.ChannelBuffer;
-
 /**
  * @author The Netty Project (netty-dev@lists.jboss.org)
  * @author Andy Taylor (andy.taylor@jboss.org)
@@ -77,67 +75,5 @@ class HttpCodecUtil {
 
     private HttpCodecUtil() {
         super();
-    }
-
-    //Some commons methods between HttpDataDecoder and HttpMessageDecoder
-    /**
-     * Skip control Characters
-     * @param buffer
-     */
-    static void skipControlCharacters(ChannelBuffer buffer) {
-        for (;;) {
-            char c = (char) buffer.readUnsignedByte();
-            if (!Character.isISOControl(c) && !Character.isWhitespace(c)) {
-                buffer.readerIndex(buffer.readerIndex() - 1);
-                break;
-            }
-        }
-    }
-
-    /**
-     * Find the first non whitespace
-     * @param sb
-     * @param offset
-     * @return the rank of the first non whitespace
-     */
-    static int findNonWhitespace(String sb, int offset) {
-        int result;
-        for (result = offset; result < sb.length(); result ++) {
-            if (!Character.isWhitespace(sb.charAt(result))) {
-                break;
-            }
-        }
-        return result;
-    }
-
-    /**
-     * Find the first whitespace
-     * @param sb
-     * @param offset
-     * @return the rank of the first whitespace
-     */
-    static int findWhitespace(String sb, int offset) {
-        int result;
-        for (result = offset; result < sb.length(); result ++) {
-            if (Character.isWhitespace(sb.charAt(result))) {
-                break;
-            }
-        }
-        return result;
-    }
-
-    /**
-     * Find the end of String
-     * @param sb
-     * @return the rank of the end of string
-     */
-    static int findEndOfString(String sb) {
-        int result;
-        for (result = sb.length(); result > 0; result --) {
-            if (!Character.isWhitespace(sb.charAt(result - 1))) {
-                break;
-            }
-        }
-        return result;
     }
 }

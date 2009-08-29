@@ -41,7 +41,7 @@ import org.jboss.netty.buffer.ChannelBuffers;
  * @author frederic bregier
  *
  */
-public class DefaultFileUpload implements FileUpload {
+public class MemoryFileUpload implements FileUpload {
     private final String name;
 
     private String filename = null;
@@ -49,6 +49,8 @@ public class DefaultFileUpload implements FileUpload {
     private ChannelBuffer channelBuffer = null;
 
     private String contentType = null;
+
+    private String contentTransferEncoding = null;
 
     private String charset = HttpCodecUtil.DEFAULT_CHARSET;
 
@@ -58,9 +60,9 @@ public class DefaultFileUpload implements FileUpload {
 
     private boolean completed = false;
 
-    public DefaultFileUpload(String name, String filename, String contentType,
-            String charset, long size) throws NullPointerException,
-            IllegalArgumentException {
+    public MemoryFileUpload(String name, String filename, String contentType,
+            String contentTransferEncoding, String charset, long size)
+            throws NullPointerException, IllegalArgumentException {
         if (name == null) {
             throw new NullPointerException("name");
         }
@@ -95,6 +97,7 @@ public class DefaultFileUpload implements FileUpload {
         this.name = name;
         setFilename(filename);
         setContentType(contentType);
+        setContentTransferEncoding(contentTransferEncoding);
         if (charset != null) {
             setCharset(charset);
         }
@@ -148,8 +151,8 @@ public class DefaultFileUpload implements FileUpload {
 
     public int compareTo(HttpData arg0) {
         if (!(arg0 instanceof FileUpload)) {
-            throw new ClassCastException("Cannot compare " +
-                    getHttpDataType() + " with " + arg0.getHttpDataType());
+            throw new ClassCastException("Cannot compare " + getHttpDataType() +
+                    " with " + arg0.getHttpDataType());
         }
         return compareTo((FileUpload) arg0);
     }
@@ -195,8 +198,8 @@ public class DefaultFileUpload implements FileUpload {
             } else {
                 //this.channelBuffer = ChannelBuffers.wrappedBuffer(this.channelBuffer, buffer);
                 // less memory usage
-                channelBuffer = AggregateChannelBuffer
-                        .wrappedCheckedBuffer(channelBuffer, buffer);
+                channelBuffer = AggregateChannelBuffer.wrappedCheckedBuffer(
+                        channelBuffer, buffer);
             }
         }
         if (last) {
@@ -289,6 +292,22 @@ public class DefaultFileUpload implements FileUpload {
             throw new NullPointerException("charset");
         }
         this.charset = charset;
+    }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.codec.http2.FileUpload#getContentTransferEncoding()
+     */
+    @Override
+    public String getContentTransferEncoding() {
+        return contentTransferEncoding;
+    }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.codec.http2.FileUpload#setContentTransferEncoding(java.lang.String)
+     */
+    @Override
+    public void setContentTransferEncoding(String contentTransferEncoding) {
+        this.contentTransferEncoding = contentTransferEncoding;
     }
 
     /* (non-Javadoc)

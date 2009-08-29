@@ -166,7 +166,7 @@ public abstract class HttpMessageDecoder extends
         switch (state) {
         case SKIP_CONTROL_CHARS: {
             try {
-                HttpCodecUtil.skipControlCharacters(buffer);
+                HttpBodyUtil.skipControlCharacters(buffer);
                 checkpoint(State.READ_INITIAL);
             } finally {
                 checkpoint();
@@ -572,14 +572,14 @@ public abstract class HttpMessageDecoder extends
         int cStart;
         int cEnd;
 
-        aStart = HttpCodecUtil.findNonWhitespace(sb, 0);
-        aEnd = HttpCodecUtil.findWhitespace(sb, aStart);
+        aStart = HttpBodyUtil.findNonWhitespace(sb, 0);
+        aEnd = HttpBodyUtil.findWhitespace(sb, aStart);
 
-        bStart = HttpCodecUtil.findNonWhitespace(sb, aEnd);
-        bEnd = HttpCodecUtil.findWhitespace(sb, bStart);
+        bStart = HttpBodyUtil.findNonWhitespace(sb, aEnd);
+        bEnd = HttpBodyUtil.findWhitespace(sb, bStart);
 
-        cStart = HttpCodecUtil.findNonWhitespace(sb, bEnd);
-        cEnd = HttpCodecUtil.findEndOfString(sb);
+        cStart = HttpBodyUtil.findNonWhitespace(sb, bEnd);
+        cEnd = HttpBodyUtil.findEndOfString(sb);
 
         return new String[] { sb.substring(aStart, aEnd),
                 sb.substring(bStart, bEnd), sb.substring(cStart, cEnd) };
@@ -592,7 +592,7 @@ public abstract class HttpMessageDecoder extends
         int valueStart;
         int valueEnd;
 
-        nameStart = HttpCodecUtil.findNonWhitespace(sb, 0);
+        nameStart = HttpBodyUtil.findNonWhitespace(sb, 0);
         for (nameEnd = nameStart; nameEnd < sb.length(); nameEnd ++) {
             char ch = sb.charAt(nameEnd);
             if (ch == ':' || Character.isWhitespace(ch)) {
@@ -607,8 +607,8 @@ public abstract class HttpMessageDecoder extends
             }
         }
 
-        valueStart = HttpCodecUtil.findNonWhitespace(sb, colonEnd);
-        valueEnd = HttpCodecUtil.findEndOfString(sb);
+        valueStart = HttpBodyUtil.findNonWhitespace(sb, colonEnd);
+        valueEnd = HttpBodyUtil.findEndOfString(sb);
 
         return new String[] { sb.substring(nameStart, nameEnd),
                 sb.substring(valueStart, valueEnd) };

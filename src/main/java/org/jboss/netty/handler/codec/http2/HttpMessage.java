@@ -23,6 +23,7 @@
 package org.jboss.netty.handler.codec.http2;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.jboss.netty.buffer.ChannelBuffer;
@@ -72,6 +73,41 @@ public interface HttpMessage {
      * Returns the {@link Set} of all header names that this message contains.
      */
     Set<String> getHeaderNames();
+
+    /**
+     *
+     * Returns the {@link Map} of all header that this message contains, map key being
+     * header names, map object being {@link List} of associated header values.
+     */
+    Map<String, List<String>> getHeaders();
+
+    /**
+     * Convenient method to decodes the Cookie HTTP header value into a {@link Set}
+     * of {@link Cookie}s.
+     *
+     * @return the decoded {@link Cookie}s
+     */
+    Set<Cookie> getCookies();
+
+    /**
+     * Convenient method to add a {@link Cookie}
+     *
+     * @param cookie the cookie to add
+     * @param isServer {@code true} if and only if this encoder is supposed to
+     *               encode server-side cookies.  {@code false} if and only if
+     *               this encoder is supposed to encode client-side cookies.
+     */
+    void addCookie(Cookie cookie, boolean isServer);
+
+    /**
+     * Convenient method to replace all {@link Cookie}s
+     *
+     * @param cookies
+     * @param isServer {@code true} if and only if this encoder is supposed to
+     *               encode server-side cookies.  {@code false} if and only if
+     *               this encoder is supposed to encode client-side cookies.
+     */
+    void setCookies(Set<Cookie> cookies, boolean isServer);
 
     /**
      * Returns the protocol version of this message.

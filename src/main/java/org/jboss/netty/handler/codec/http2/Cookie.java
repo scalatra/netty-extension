@@ -34,7 +34,7 @@ import java.util.Set;
  *
  * @apiviz.landmark
  */
-public interface Cookie extends HttpData {
+public interface Cookie extends Comparable<Cookie> {
 
     /**
      * Returns the name of this cookie.

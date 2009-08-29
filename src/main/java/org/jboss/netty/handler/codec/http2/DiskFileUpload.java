@@ -61,13 +61,15 @@ public class DiskFileUpload implements FileUpload {
 
     private String contentType = null;
 
+    private String contentTransferEncoding = null;
+
     private String charset = HttpCodecUtil.DEFAULT_CHARSET;
 
     private boolean completed = false;
 
     public DiskFileUpload(String name, String filename, String contentType,
-            String charset, long size) throws NullPointerException,
-            IllegalArgumentException {
+            String contentTransferEncoding, String charset, long size)
+            throws NullPointerException, IllegalArgumentException {
         if (name == null) {
             throw new NullPointerException("name");
         }
@@ -102,6 +104,7 @@ public class DiskFileUpload implements FileUpload {
         this.name = name;
         setFilename(filename);
         setContentType(contentType);
+        setContentTransferEncoding(contentTransferEncoding);
         if (charset != null) {
             setCharset(charset);
         }
@@ -155,8 +158,8 @@ public class DiskFileUpload implements FileUpload {
 
     public int compareTo(HttpData arg0) {
         if (!(arg0 instanceof FileUpload)) {
-            throw new ClassCastException("Cannot compare " +
-                    getHttpDataType() + " with " + arg0.getHttpDataType());
+            throw new ClassCastException("Cannot compare " + getHttpDataType() +
+                    " with " + arg0.getHttpDataType());
         }
         return compareTo((FileUpload) arg0);
     }
@@ -318,6 +321,22 @@ public class DiskFileUpload implements FileUpload {
      */
     public String getContentType() {
         return contentType;
+    }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.codec.http2.FileUpload#getContentTransferEncoding()
+     */
+    @Override
+    public String getContentTransferEncoding() {
+        return contentTransferEncoding;
+    }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.codec.http2.FileUpload#setContentTransferEncoding(java.lang.String)
+     */
+    @Override
+    public void setContentTransferEncoding(String contentTransferEncoding) {
+        this.contentTransferEncoding = contentTransferEncoding;
     }
 
     /* (non-Javadoc)
