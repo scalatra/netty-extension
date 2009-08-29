@@ -22,19 +22,22 @@
  */
 package org.jboss.netty.handler.codec.http2;
 
+import java.io.IOException;
+
 /**
+ * Attribute interface
  * @author frederic bregier
  *
  */
-public interface Attribute extends HttpData {
+public interface Attribute extends FileHttpData {
     /**
      * Returns the value of this HttpData.
      */
-    String getValue();
+    String getValue() throws IOException;
 
     /**
      * Sets the value of this HttpData.
      * @param value
      */
-    void setValue(String value);
+    void setValue(String value) throws IOException;
 }

@@ -120,9 +120,9 @@ public class HttpBodyRequestDecoder {
     private FileUpload currentFileUpload = null;
 
     /**
-     * Keep all FileUpload until cleanFileUploads() is called.
+     * The current Attribute that is currently in decode process
      */
-    private List<FileUpload> fileUploadsToDelete = null;
+    private Attribute currentAttribute = null;
 
     /**
     *
@@ -625,12 +625,36 @@ public class HttpBodyRequestDecoder {
             Attribute charsetAttribute = currentFieldAttributes
                     .get(HttpBodyUtil.CHARSET);
             if (charsetAttribute != null) {
-                localCharset = charsetAttribute.getValue();
+                try {
+                    localCharset = charsetAttribute.getValue();
+                } catch (IOException e) {
+                    throw new ErrorDataDecoderException(e);
+                }
             }
             Attribute nameAttribute = currentFieldAttributes
-                    .get(HttpBodyUtil.NAME);
+                .get(HttpBodyUtil.NAME);
+            if (currentAttribute == null) {
+                try {
+                    currentAttribute = factory.createAttribute(nameAttribute
+                            .getValue());
+                } catch (NullPointerException e) {
+                    throw new ErrorDataDecoderException(e);
+                } catch (IllegalArgumentException e) {
+                    throw new ErrorDataDecoderException(e);
+                } catch (IOException e) {
+                    throw new ErrorDataDecoderException(e);
+                }
+                currentAttribute.setCharset(localCharset);
+            }
             // load data
-            String finalValue;
+            try {
+                loadFieldMultipart(multipartDataBoundary);
+            } catch (NotEnoughDataDecoderException e) {
+                return null;
+            }
+            Attribute finalAttribute = currentAttribute;
+            currentAttribute = null;
+            /*String finalValue;
             try {
                 finalValue = readFieldMultipart(multipartDataBoundary,
                         localCharset);
@@ -645,7 +669,9 @@ public class HttpBodyRequestDecoder {
                 throw new ErrorDataDecoderException(e);
             } catch (IllegalArgumentException e) {
                 throw new ErrorDataDecoderException(e);
-            }
+            } catch (IOException e) {
+                throw new ErrorDataDecoderException(e);
+            }*/
             currentFieldAttributes = null;
             // ready to load the next one
             currentStatus = MultiPartStatus.HEADERDELIMITER;
@@ -889,7 +915,12 @@ public class HttpBodyRequestDecoder {
         // Default
         TransferEncodingMechanism mechanism = TransferEncodingMechanism.BIT7;
         if (encoding != null) {
-            String code = encoding.getValue().toLowerCase();
+            String code;
+            try {
+                code = encoding.getValue().toLowerCase();
+            } catch (IOException e) {
+                throw new ErrorDataDecoderException(e);
+            }
             if (code.equals(HttpBodyUtil.TransferEncodingMechanism.BIT7)) {
                 localCharset = HttpBodyUtil.US_ASCII;
             } else if (code.equals(HttpBodyUtil.TransferEncodingMechanism.BIT8)) {
@@ -907,7 +938,11 @@ public class HttpBodyRequestDecoder {
         Attribute charsetAttribute = currentFieldAttributes
                 .get(HttpBodyUtil.CHARSET);
         if (charsetAttribute != null) {
-            localCharset = charsetAttribute.getValue();
+            try {
+                localCharset = charsetAttribute.getValue();
+            } catch (IOException e) {
+                throw new ErrorDataDecoderException(e);
+            }
         }
         if (currentFileUpload == null) {
             Attribute filenameAttribute = currentFieldAttributes
@@ -926,6 +961,8 @@ public class HttpBodyRequestDecoder {
             try {
                 size = lengthAttribute != null? Long.parseLong(lengthAttribute
                         .getValue()) : 0L;
+            } catch (IOException e) {
+                throw new ErrorDataDecoderException(e);
             } catch (NumberFormatException e) {
             }
             try {
@@ -937,8 +974,9 @@ public class HttpBodyRequestDecoder {
                 throw new ErrorDataDecoderException(e);
             } catch (IllegalArgumentException e) {
                 throw new ErrorDataDecoderException(e);
+            } catch (IOException e) {
+                throw new ErrorDataDecoderException(e);
             }
-            addFileUpload();
         }
         // load data as much as possible
         try {
@@ -969,37 +1007,19 @@ public class HttpBodyRequestDecoder {
     }
 
     /**
-     * Internal to add new FileUpload into the list to delete
-     */
-    private void addFileUpload() {
-        if (fileUploadsToDelete == null) {
-            fileUploadsToDelete = new ArrayList<FileUpload>();
-        }
-        fileUploadsToDelete.add(currentFileUpload);
-    }
-
-    /**
-     * Clean all FileUploads (even on Disk).
+     * Clean all HttpDatas (on Disk).
      *
      */
-    public void cleanFileUploads() {
-        if (fileUploadsToDelete != null) {
-            for (FileUpload fileUpload: fileUploadsToDelete) {
-                fileUpload.delete();
-            }
-            fileUploadsToDelete.clear();
-            fileUploadsToDelete = null;
-        }
+    public void cleanFiles() {
+        factory.cleanAllHttpDatas();
     }
 
     /**
      * Remove the given FileUpload from the list of FileUploads to clean
      * @param fileUpload
      */
-    public void removeFileUploadFromClean(FileUpload fileUpload) {
-        if (fileUploadsToDelete != null) {
-            fileUploadsToDelete.remove(fileUpload);
-        }
+    public void removeHttpDataFromClean(HttpData data) {
+        factory.removeHttpDataFromClean(data);
     }
 
     /**
@@ -1123,7 +1143,7 @@ public class HttpBodyRequestDecoder {
                 // just before the CRLF and delimiter
                 undecodedChunk.readerIndex(lastPosition);
             } catch (IOException e) {
-                throw new ErrorDataDecoderException("IOException", e);
+                throw new ErrorDataDecoderException(e);
             }
         } else {
             // possibly the delimiter is partially found but still the last position is OK
@@ -1133,19 +1153,18 @@ public class HttpBodyRequestDecoder {
                 undecodedChunk.readerIndex(lastPosition);
                 throw new NotEnoughDataDecoderException();
             } catch (IOException e) {
-                throw new ErrorDataDecoderException("IOException", e);
+                throw new ErrorDataDecoderException(e);
             }
         }
     }
 
     /**
-     * Read the field value from a Multipart request
-     * @return the field value
-     * @throws NotEnoughDataDecoderException Need more chunks and
-     *   reset the readerInder to the previous value
+     * Load the field value from a Multipart request
+     * @throws NotEnoughDataDecoderException Need more chunks
+     * @throws ErrorDataDecoderException
      */
-    private String readFieldMultipart(String delimiter, String newcharset)
-            throws NotEnoughDataDecoderException {
+    private void loadFieldMultipart(String delimiter)
+            throws NotEnoughDataDecoderException, ErrorDataDecoderException {
         int readerIndex = undecodedChunk.readerIndex();
         try {
             // found the decoder limit
@@ -1169,31 +1188,39 @@ public class HttpBodyRequestDecoder {
                         index = 0;
                         // continue until end of line
                         if (nextByte == HttpCodecUtil.CR) {
+                            if (undecodedChunk.readable()) {
+                                nextByte = undecodedChunk.readByte();
+                                if (nextByte == HttpCodecUtil.LF) {
+                                    newLine = true;
+                                    index = 0;
+                                    lastPosition = undecodedChunk.readerIndex() - 2;
+                                }
+                            }
+                        } else if (nextByte == HttpCodecUtil.LF) {
+                            newLine = true;
+                            index = 0;
+                            lastPosition = undecodedChunk.readerIndex() - 1;
+                        } else {
+                            lastPosition = undecodedChunk.readerIndex();
+                        }
+                    }
+                } else {
+                    // continue until end of line
+                    if (nextByte == HttpCodecUtil.CR) {
+                        if (undecodedChunk.readable()) {
                             nextByte = undecodedChunk.readByte();
                             if (nextByte == HttpCodecUtil.LF) {
                                 newLine = true;
                                 index = 0;
                                 lastPosition = undecodedChunk.readerIndex() - 2;
                             }
-                        } else if (nextByte == HttpCodecUtil.LF) {
-                            newLine = true;
-                            index = 0;
-                            lastPosition = undecodedChunk.readerIndex() - 1;
-                        }
-                    }
-                } else {
-                    // continue until end of line
-                    if (nextByte == HttpCodecUtil.CR) {
-                        nextByte = undecodedChunk.readByte();
-                        if (nextByte == HttpCodecUtil.LF) {
-                            newLine = true;
-                            index = 0;
-                            lastPosition = undecodedChunk.readerIndex() - 2;
                         }
                     } else if (nextByte == HttpCodecUtil.LF) {
                         newLine = true;
                         index = 0;
                         lastPosition = undecodedChunk.readerIndex() - 1;
+                    } else {
+                        lastPosition = undecodedChunk.readerIndex();
                     }
                 }
             }
@@ -1201,11 +1228,23 @@ public class HttpBodyRequestDecoder {
                 // found so lastPosition is correct
                 // but position is just after the delimiter (either close delimiter or simple one)
                 // so go back of delimiter size
+                try {
+                    currentAttribute.addContent(
+                            undecodedChunk.slice(readerIndex, lastPosition-readerIndex),
+                            true);
+                } catch (IOException e) {
+                    throw new ErrorDataDecoderException(e);
+                }
                 undecodedChunk.readerIndex(lastPosition);
-                return undecodedChunk.toString(readerIndex, lastPosition -
-                        readerIndex, newcharset);
             } else {
-                undecodedChunk.readerIndex(readerIndex);
+                try {
+                    currentAttribute.addContent(
+                            undecodedChunk.slice(readerIndex, lastPosition-readerIndex),
+                            false);
+                } catch (IOException e) {
+                    throw new ErrorDataDecoderException(e);
+                }
+                undecodedChunk.readerIndex(lastPosition);
                 throw new NotEnoughDataDecoderException();
             }
         } catch (IndexOutOfBoundsException e) {

@@ -22,10 +22,16 @@
  */
 package org.jboss.netty.handler.codec.http2;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
 /**
- * Default factory giving DefaultAttribute and FileUpload according to constructor
+ * Default factory giving Attribute and FileUpload according to constructor
  *
- * FileUpload could be MemoryFileUpload, DiskFileUpload or MixteFileUpload
+ * Attribute and FileUpload could be :<br>
+ * - MemoryAttribute, DiskAttribute or MixedAttribute<br>
+ * - MemoryFileUpload, DiskFileUpload or MixedFileUpload<br>
  * according to the constructor.
  *
  * @author frederic bregier
@@ -44,16 +50,22 @@ public class DefaultHttpDataFactory implements HttpDataFactory {
     private long minSize = 0L;
 
     /**
-     * FileUpload will be always in memory
+     * Keep all HttpDatas until cleanAllHttpDatas() is called.
+     */
+    private List<FileHttpData> fileToDelete = new ArrayList<FileHttpData>();
+
+    /**
+     * HttpData will be in memory if less than default size (16KB).
+     * The type will be Mixed.
      */
     public DefaultHttpDataFactory() {
-        // empty constructor
         useDisk = false;
-        checkSize = false;
+        checkSize = true;
+        this.minSize = MINSIZE;
     }
 
     /**
-     * FileUpload will be always on DiskFileUpload if useDisk is True, else always in Memory if False
+     * HttpData will be always on Disk if useDisk is True, else always in Memory if False
      * @param useDisk
      */
     public DefaultHttpDataFactory(boolean useDisk) {
@@ -62,8 +74,8 @@ public class DefaultHttpDataFactory implements HttpDataFactory {
     }
 
     /**
-     * FileUpload will be on Disk if the size of the file is greater than minSize, else it
-     * will be in memory. The type will be MixteFileUpload
+     * HttpData will be on Disk if the size of the file is greater than minSize, else it
+     * will be in memory. The type will be Mixed.
      * @param minSize
      */
     public DefaultHttpDataFactory(long minSize) {
@@ -73,11 +85,48 @@ public class DefaultHttpDataFactory implements HttpDataFactory {
     }
 
     /* (non-Javadoc)
+     * @see org.jboss.netty.handler.codec.http2.HttpDataFactory#createAttribute(java.lang.String)
+     */
+    @Override
+    public Attribute createAttribute(String name) throws NullPointerException,
+            IllegalArgumentException {
+        if (useDisk) {
+            Attribute attribute = new DiskAttribute(name);
+            fileToDelete.add(attribute);
+            return attribute;
+        } else if (checkSize) {
+            Attribute attribute = new MixedAttribute(name, minSize);
+            fileToDelete.add(attribute);
+            return attribute;
+        }
+        return new MemoryAttribute(name);
+    }
+
+    /* (non-Javadoc)
      * @see org.jboss.netty.handler.codec.http2.HttpDataFactory#createAttribute(java.lang.String, java.lang.String)
      */
     public Attribute createAttribute(String name, String value)
             throws NullPointerException, IllegalArgumentException {
-        return new DefaultAttribute(name, value);
+        if (useDisk) {
+            Attribute attribute;
+            try {
+                attribute = new DiskAttribute(name, value);
+            } catch (IOException e) {
+                // revert to Mixed mode
+                attribute = new MixedAttribute(name, value, minSize);
+            }
+            fileToDelete.add(attribute);
+            return attribute;
+        } else if (checkSize) {
+            Attribute attribute = new MixedAttribute(name, value, minSize);
+            fileToDelete.add(attribute);
+            return attribute;
+        }
+        try {
+            return new MemoryAttribute(name, value);
+        } catch (IOException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     /* (non-Javadoc)
@@ -87,14 +136,39 @@ public class DefaultHttpDataFactory implements HttpDataFactory {
             String contentType, String contentTransferEncoding, String charset,
             long size) throws NullPointerException, IllegalArgumentException {
         if (useDisk) {
-            return new DiskFileUpload(name, filename, contentType,
+            FileUpload fileUpload = new DiskFileUpload(name, filename, contentType,
                     contentTransferEncoding, charset, size);
+            fileToDelete.add(fileUpload);
+            return fileUpload;
         } else if (checkSize) {
-            return new MixteFileUpload(name, filename, contentType,
+            FileUpload fileUpload = new MixedFileUpload(name, filename, contentType,
                     contentTransferEncoding, charset, size, minSize);
+            fileToDelete.add(fileUpload);
+            return fileUpload;
         }
         return new MemoryFileUpload(name, filename, contentType,
                 contentTransferEncoding, charset, size);
+    }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.codec.http2.HttpDataFactory#removeHttpDataFromClean(org.jboss.netty.handler.codec.http2.HttpData)
+     */
+    @Override
+    public void removeHttpDataFromClean(HttpData data) {
+        if (data instanceof FileHttpData) {
+            fileToDelete.remove(data);
+        }
+    }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.codec.http2.HttpDataFactory#cleanAllHttpData()
+     */
+    @Override
+    public void cleanAllHttpDatas() {
+        for (FileHttpData data: fileToDelete) {
+            data.delete();
+        }
+        fileToDelete.clear();
     }
 
 }

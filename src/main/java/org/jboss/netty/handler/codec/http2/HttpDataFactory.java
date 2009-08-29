@@ -30,6 +30,16 @@ package org.jboss.netty.handler.codec.http2;
  */
 public interface HttpDataFactory {
     /**
+    *
+    * @param name
+    * @return a new Attribute with no value
+    * @throws NullPointerException
+    * @throws IllegalArgumentException
+    */
+   public Attribute createAttribute(String name)
+           throws NullPointerException, IllegalArgumentException;
+
+    /**
      *
      * @param name
      * @param value
@@ -52,4 +62,16 @@ public interface HttpDataFactory {
     public FileUpload createFileUpload(String name, String filename,
             String contentType, String contentTransferEncoding, String charset,
             long size) throws NullPointerException, IllegalArgumentException;
+
+    /**
+     * Remove the given HttpData from clean list (will not delete the file, except if the file
+     * is still a temporary one as setup at construction)
+     * @param data
+     */
+    public void removeHttpDataFromClean(HttpData data);
+
+    /**
+     * Remove all HttpData from virtual File storage from clean list
+     */
+    public void cleanAllHttpDatas();
 }

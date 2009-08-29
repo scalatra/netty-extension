@@ -22,57 +22,43 @@
  */
 package org.jboss.netty.handler.codec.http2;
 
+import java.io.IOException;
+
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
+
 /**
- * Default implementation of Attributes
+ * Disk implementation of Attributes
  * @author frederic bregier
  *
  */
-public class DefaultAttribute implements Attribute {
-    private final String name;
+public class DiskAttribute extends AbstractDiskHttpData implements Attribute {
+    public static String baseDirectory = null;
 
-    private String value;
+    public static boolean deleteOnExitTemporaryFile = true;
 
+    public static String prefix = "Attr_";
+
+    public static String postfix = ".att";
+
+    /**
+     * Constructor used for huge Attribute
+     * @param name
+     */
+    public DiskAttribute(String name) {
+        super(name, HttpCodecUtil.DEFAULT_CHARSET, 0);
+    }
     /**
      *
      * @param name
      * @param value
      * @throws NullPointerException
      * @throws IllegalArgumentException
+     * @throws IOException
      */
-    public DefaultAttribute(String name, String value)
-            throws NullPointerException, IllegalArgumentException {
-        if (name == null) {
-            throw new NullPointerException("name");
-        }
-        name = name.trim();
-        if (name.length() == 0) {
-            throw new IllegalArgumentException("empty name");
-        }
-
-        for (int i = 0; i < name.length(); i ++) {
-            char c = name.charAt(i);
-            if (c > 127) {
-                throw new IllegalArgumentException(
-                        "name contains non-ascii character: " + name);
-            }
-
-            // Check prohibited characters.
-            switch (c) {
-            case '=':
-            case ',':
-            case ';':
-            case ' ':
-            case '\t':
-            case '\r':
-            case '\n':
-            case '\f':
-            case 0x0b: // Vertical tab
-                throw new IllegalArgumentException(
-                        "name contains one of the following prohibited characters: " +
-                                "=,; \\t\\r\\n\\v\\f: " + name);
-            }
-        }
-        this.name = name;
+    public DiskAttribute(String name, String value)
+            throws NullPointerException, IllegalArgumentException, IOException {
+        super(name, HttpCodecUtil.DEFAULT_CHARSET, value.length());
         setValue(value);
     }
 
@@ -80,21 +66,29 @@ public class DefaultAttribute implements Attribute {
         return HttpDataType.Attribute;
     }
 
-    public String getName() {
-        return name;
+    public String getValue() throws IOException {
+        byte [] bytes = get();
+        return new String(bytes, charset);
     }
 
-    public String getValue() {
-        return value;
-    }
-
-    public void setValue(String value) {
+    public void setValue(String value) throws IOException {
         if (value == null) {
             throw new NullPointerException("value");
         }
-        this.value = value;
+        byte [] bytes = value.getBytes(charset);
+        ChannelBuffer buffer = ChannelBuffers.wrappedBuffer(bytes);
+        definedSize = buffer.readableBytes();
+        setContent(buffer);
     }
 
+    @Override
+    public void addContent(ChannelBuffer buffer, boolean last) throws IOException {
+        int localsize = buffer.readableBytes();
+        if (definedSize > 0 && definedSize < size + localsize) {
+            definedSize = size + localsize;
+        }
+        super.addContent(buffer, last);
+    }
     @Override
     public int hashCode() {
         return getName().hashCode();
@@ -123,6 +117,30 @@ public class DefaultAttribute implements Attribute {
 
     @Override
     public String toString() {
-        return name + "=" + value;
+        try {
+            return getName() + "=" + getValue();
+        } catch (IOException e) {
+            return getName() + "=IoException";
+        }
+    }
+
+    protected boolean deleteOnExit() {
+        return deleteOnExitTemporaryFile;
+    }
+
+    protected String getBaseDirectory() {
+        return baseDirectory;
+    }
+
+    protected String getDiskFilename() {
+        return getName()+postfix;
+    }
+
+    protected String getPostfix() {
+        return postfix;
+    }
+
+    protected String getPrefix() {
+        return prefix;
     }
 }

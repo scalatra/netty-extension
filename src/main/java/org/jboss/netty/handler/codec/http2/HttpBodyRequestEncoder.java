@@ -22,6 +22,7 @@
  */
 package org.jboss.netty.handler.codec.http2;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -406,9 +407,10 @@ public class HttpBodyRequestEncoder {
     /**
      * Set the Body HttpDatas list
      * @param datas
+     * @throws ErrorDataEncoderException
      */
     public void setBodyHttpDatas(List<HttpData> datas)
-            throws NullPointerException {
+            throws NullPointerException, ErrorDataEncoderException {
         if (datas == null) {
             throw new NullPointerException("datas");
         }
@@ -422,7 +424,7 @@ public class HttpBodyRequestEncoder {
         }
     }
 
-    private long getSizeFromHttpData(HttpData data) {
+    private long getSizeFromHttpData(HttpData data) throws ErrorDataEncoderException {
         long localBodySize = 0;
         if (data instanceof FileUpload) {
             FileUpload fileUpload = (FileUpload) data;
@@ -448,8 +450,12 @@ public class HttpBodyRequestEncoder {
             }
         } else {
             Attribute attribute = (Attribute) data;
-            localBodySize = attribute.getName().length() +
-                    attribute.getValue().length() + 1;
+            try {
+                localBodySize = attribute.getName().length() +
+                        attribute.getValue().length() + 1;
+            } catch (IOException e) {
+                throw new ErrorDataEncoderException(e);
+            }
         }
         return localBodySize;
     }
@@ -457,8 +463,9 @@ public class HttpBodyRequestEncoder {
     /**
      * Add the HttpData to the Body list
      * @param data
+     * @throws ErrorDataEncoderException
      */
-    public void addBodyHttpData(HttpData data) throws NullPointerException {
+    public void addBodyHttpData(HttpData data) throws NullPointerException, ErrorDataEncoderException {
         if (data == null) {
             throw new NullPointerException("data");
         }
@@ -469,15 +476,20 @@ public class HttpBodyRequestEncoder {
         }
     }
 
-    public void encodeHeader(boolean serverSide) {
+    public void encodeHeader(boolean serverSide) throws ErrorDataEncoderException {
         //FIXME should we do close ?
-        boolean close = HttpHeaders.Values.CLOSE
-                .equalsIgnoreCase(headerAttributes.get(
-                        HttpHeaders.Names.CONNECTION).get(0).getValue()) ||
-                response.getProtocolVersion().equals(HttpVersion.HTTP_1_0) &&
-                !HttpHeaders.Values.KEEP_ALIVE
-                        .equalsIgnoreCase(headerAttributes.get(
-                                HttpHeaders.Names.CONNECTION).get(0).getValue());
+        boolean close;
+        try {
+            close = HttpHeaders.Values.CLOSE
+                    .equalsIgnoreCase(headerAttributes.get(
+                            HttpHeaders.Names.CONNECTION).get(0).getValue()) ||
+                    response.getProtocolVersion().equals(HttpVersion.HTTP_1_0) &&
+                    !HttpHeaders.Values.KEEP_ALIVE
+                            .equalsIgnoreCase(headerAttributes.get(
+                                    HttpHeaders.Names.CONNECTION).get(0).getValue());
+        } catch (IOException e) {
+            throw new ErrorDataEncoderException(e);
+        }
         for (List<Attribute> headers: headerAttributes.values()) {
             for (Attribute header: headers) {
                 if (header.getName()
@@ -485,7 +497,11 @@ public class HttpBodyRequestEncoder {
                     // No content type now
                     break;
                 }
-                response.addHeader(header.getName(), header.getValue());
+                try {
+                    response.addHeader(header.getName(), header.getValue());
+                } catch (IOException e) {
+                    throw new ErrorDataEncoderException(e);
+                }
             }
         }
         if (!cookies.isEmpty()) {
@@ -502,7 +518,12 @@ public class HttpBodyRequestEncoder {
             boolean found = false;
             if (contentTypes != null) {
                 for (Attribute contentType: contentTypes) {
-                    String value = contentType.getValue();
+                    String value;
+                    try {
+                        value = contentType.getValue();
+                    } catch (IOException e) {
+                        throw new ErrorDataEncoderException(e);
+                    }
                     // "multipart/form-data; boundary=--89421926422648"
                     if (value.toLowerCase().startsWith(
                             HttpBodyUtil.MULTIPART_FORM_DATA + "; " +
@@ -524,8 +545,12 @@ public class HttpBodyRequestEncoder {
                 Attribute contentType = factory.createAttribute(
                         HttpBodyUtil.CONTENT_TYPE, value);
                 addHeaderAttributes(contentType);
-                response.addHeader(contentType.getName(), contentType
-                        .getValue());
+                try {
+                    response.addHeader(contentType.getName(), contentType
+                            .getValue());
+                } catch (IOException e) {
+                    throw new ErrorDataEncoderException(e);
+                }
             }
         } else {
             // Not multipart
@@ -534,7 +559,12 @@ public class HttpBodyRequestEncoder {
             boolean found = false;
             if (contentTypes != null) {
                 for (Attribute contentType: contentTypes) {
-                    String value = contentType.getValue();
+                    String value;
+                    try {
+                        value = contentType.getValue();
+                    } catch (IOException e) {
+                        throw new ErrorDataEncoderException(e);
+                    }
                     // "application/x-www-form-urlencoded"
                     if (value.toLowerCase().startsWith(
                             HttpBodyUtil.STANDARD_APPLICATION_FORM)) {
@@ -550,8 +580,12 @@ public class HttpBodyRequestEncoder {
                         HttpBodyUtil.CONTENT_TYPE,
                         HttpBodyUtil.STANDARD_APPLICATION_FORM);
                 addHeaderAttributes(contentType);
-                response.addHeader(contentType.getName(), contentType
-                        .getValue());
+                try {
+                    response.addHeader(contentType.getName(), contentType
+                            .getValue());
+                } catch (IOException e) {
+                    throw new ErrorDataEncoderException(e);
+                }
             }
         }
         // Now consider size for chunk or not

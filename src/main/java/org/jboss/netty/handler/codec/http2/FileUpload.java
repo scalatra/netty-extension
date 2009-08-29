@@ -22,11 +22,6 @@
  */
 package org.jboss.netty.handler.codec.http2;
 
-import java.io.File;
-import java.io.IOException;
-
-import org.jboss.netty.buffer.ChannelBuffer;
-
 /**
  * FileUpload interface that could be in memory, on temporary file or any other implementations.
  *
@@ -35,7 +30,7 @@ import org.jboss.netty.buffer.ChannelBuffer;
  * @author frederic bregier
  *
  */
-public interface FileUpload extends HttpData {
+public interface FileUpload extends FileHttpData {
     /**
      * Returns the original filename in the client's filesystem,
      * as provided by the browser (or other client software).
@@ -50,57 +45,6 @@ public interface FileUpload extends HttpData {
     public void setFilename(String filename);
 
     /**
-     * Set the content from the ChannelBuffer (erase any previous data)
-     * @param buffer must be not null
-     */
-    public void setContent(ChannelBuffer buffer) throws IOException;
-
-    /**
-     * Add the content from the ChannelBuffer
-     * @param buffer must be not null except if last is set to False
-     * @param last True of the buffer is the last one
-     */
-    public void addContent(ChannelBuffer buffer, boolean last)
-            throws IOException;
-
-    /**
-     * Set the content from the file (erase any previous data)
-     * @param file must be not null
-     */
-    public void setContent(File file) throws IOException;
-
-    /**
-     *
-     * @return True if the FileUpload is completed (all data are stored)
-     */
-    public boolean isCompleted();
-
-    /**
-     * Returns the size in byte of the FileUpload
-     * @return the size of the FileUpload
-     */
-    public long length();
-
-    /**
-     * Deletes the underlying storage for a file item,
-     * including deleting any associated temporary disk file.
-     */
-    public void delete();
-
-    /**
-     * Returns the contents of the file item as an array of bytes.
-     * @return the contents of the file item as an array of bytes.
-     */
-    public byte[] get() throws IOException;
-
-    /**
-     * Returns the content of the file item as a ChannelBuffer
-     * @return the content of the file item as a ChannelBuffer
-     * @throws IOException
-     */
-    public ChannelBuffer getChannelBuffer() throws IOException;
-
-    /**
      * Set the Content Type passed by the browser if defined
      * @param contentType Content Type to set - must be not null
      */
@@ -113,18 +57,6 @@ public interface FileUpload extends HttpData {
     public String getContentType();
 
     /**
-     * Set the Charset passed by the browser if defined
-     * @param charset Charset to set - must be not null
-     */
-    public void setCharset(String charset);
-
-    /**
-     * Returns the Charset passed by the browser or null if not defined.
-     * @return the Charset passed by the browser or null if not defined.
-     */
-    public String getCharset();
-
-    /**
      * Set the Content-Transfer-Encoding type from String as 7bit, 8bit or binary
      * @param contentTransferEncoding
      */
@@ -135,31 +67,4 @@ public interface FileUpload extends HttpData {
      * @return the Content-Transfer-Encoding
      */
     public String getContentTransferEncoding();
-
-    /**
-     * A convenience method to write an uploaded item to disk.
-     * If a previous one exists, it will be deleted.
-     * @param dest destination file - must be not null
-     * @return True if the write is successful
-     */
-    public boolean renameTo(File dest) throws IOException;
-
-    /**
-     * Returns the contents of the file item as a String, using the default character encoding.
-     * @return the contents of the file item as a String, using the default character encoding.
-     */
-    public String getString() throws IOException;
-
-    /**
-     * Returns the contents of the file item as a String, using the specified charset.
-     * @param encoding the charset to use
-     * @return the contents of the file item as a String, using the specified charset.
-     */
-    public String getString(String encoding) throws IOException;
-
-    /**
-     * Provides a hint as to whether or not the file contents will be read from memory.
-     * @return True if the file contents is in memory.
-     */
-    public boolean isInMemory();
 }

@@ -44,6 +44,7 @@ import org.jboss.netty.handler.codec.http2.Cookie;
 import org.jboss.netty.handler.codec.http2.CookieEncoder;
 import org.jboss.netty.handler.codec.http2.DefaultHttpDataFactory;
 import org.jboss.netty.handler.codec.http2.DefaultHttpResponse;
+import org.jboss.netty.handler.codec.http2.DiskAttribute;
 import org.jboss.netty.handler.codec.http2.DiskFileUpload;
 import org.jboss.netty.handler.codec.http2.FileUpload;
 import org.jboss.netty.handler.codec.http2.HttpChunk;
@@ -79,12 +80,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private final StringBuilder responseContent = new StringBuilder();
 
     private static final HttpDataFactory factory = new DefaultHttpDataFactory(
-            true); // Disk
+            DefaultHttpDataFactory.MINSIZE); // Disk
 
     private HttpBodyRequestDecoder decoder = null;
     static {
         DiskFileUpload.deleteOnExitTemporaryFile = true; // should delete file on exit (in normal exit)
         DiskFileUpload.baseDirectory = null; // system temp directory
+        DiskAttribute.deleteOnExitTemporaryFile = true; // should delete file on exit (in normal exit)
+        DiskAttribute.baseDirectory = null; // system temp directory
     }
 
     /* (non-Javadoc)
@@ -94,7 +97,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     public void channelClosed(ChannelHandlerContext ctx, ChannelStateEvent e)
             throws Exception {
         if (decoder != null) {
-            decoder.cleanFileUploads();
+            decoder.cleanFiles();
         }
     }
 
@@ -103,7 +106,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         if (!readingChunks) {
             // clean previous FileUpload if Any
             if (decoder != null) {
-                decoder.cleanFileUploads();
+                decoder.cleanFiles();
                 decoder = null;
             }
             HttpRequest request = this.request = (HttpRequest) e.getMessage();
@@ -252,7 +255,18 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private void writeHttpData(HttpData data) {
         if (data.getHttpDataType() == HttpDataType.Attribute) {
             Attribute attribute = (Attribute) data;
-            String value = attribute.getValue();
+            String value;
+            try {
+                value = attribute.getValue();
+            } catch (IOException e1) {
+                // Error while reading data from File, only print name and error
+                e1.printStackTrace();
+                responseContent.append("\r\nBODY Attribute: " +
+                        attribute.getHttpDataType().name() + ": " +
+                        attribute.getName() + " Error while reading value: "+
+                        e1.getMessage()+"\r\n");
+                return;
+            }
             if (value.length() > 100) {
                 responseContent.append("\r\nBODY Attribute: " +
                         attribute.getHttpDataType().name() + ": " +
@@ -459,6 +473,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     public void exceptionCaught(ChannelHandlerContext ctx, ExceptionEvent e)
             throws Exception {
         e.getCause().printStackTrace();
+        System.err.println(responseContent.toString());
         e.getChannel().close();
     }
 }
