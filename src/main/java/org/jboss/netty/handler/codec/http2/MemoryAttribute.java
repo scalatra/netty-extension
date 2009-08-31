@@ -24,6 +24,7 @@ package org.jboss.netty.handler.codec.http2;
 
 import java.io.IOException;
 
+import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 
 /**
@@ -46,7 +47,7 @@ public class MemoryAttribute extends AbstractMemoryHttpData implements Attribute
      */
     public MemoryAttribute(String name, String value)
             throws NullPointerException, IllegalArgumentException, IOException {
-        super(name, HttpCodecUtil.DEFAULT_CHARSET, value.length());
+        super(name, HttpCodecUtil.DEFAULT_CHARSET, 0); // Attribute have no default size
         setValue(value);
     }
 
@@ -63,7 +64,20 @@ public class MemoryAttribute extends AbstractMemoryHttpData implements Attribute
             throw new NullPointerException("value");
         }
         byte [] bytes = value.getBytes(charset);
-        this.setContent(ChannelBuffers.wrappedBuffer(bytes));
+        ChannelBuffer buffer = ChannelBuffers.wrappedBuffer(bytes);
+        if (definedSize > 0) {
+            definedSize = buffer.readableBytes();
+        }
+        setContent(buffer);
+    }
+
+    @Override
+    public void addContent(ChannelBuffer buffer, boolean last) throws IOException {
+        int localsize = buffer.readableBytes();
+        if (definedSize > 0 && definedSize < size + localsize) {
+            definedSize = size + localsize;
+        }
+        super.addContent(buffer, last);
     }
 
     @Override

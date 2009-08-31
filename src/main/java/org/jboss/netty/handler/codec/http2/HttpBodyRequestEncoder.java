@@ -29,9 +29,12 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
- * This encoder will help to encode Response.
+ * This encoder will help to encode Response for a FORM as POST or PUT.
  * @author frederic bregier
  *
  */
@@ -64,17 +67,17 @@ public class HttpBodyRequestEncoder {
     /**
      * Cookies
      */
-    private Map<String, Cookie> cookies;
+    private Set<Cookie> cookies;
 
     /**
      * Attributes for URI
      */
-    private Map<String, List<Attribute>> uriAttributes;
+    private Map<String, List<String>> uriAttributes;
 
     /**
      * Attributes for Header
      */
-    private Map<String, List<Attribute>> headerAttributes;
+    private Map<String, List<String>> headerAttributes;
 
     /**
      * HttpData for Body
@@ -129,9 +132,9 @@ public class HttpBodyRequestEncoder {
         this.charset = charset;
         this.factory = factory;
         // Fill default values
-        cookies = new HashMap<String, Cookie>();
-        uriAttributes = new HashMap<String, List<Attribute>>();
-        headerAttributes = new HashMap<String, List<Attribute>>();
+        cookies = new TreeSet<Cookie>();
+        uriAttributes = new TreeMap<String, List<String>>();
+        headerAttributes = new HashMap<String, List<String>>();
         bodyListDatas = new ArrayList<HttpData>();
         // default mode
         isLastChunk = false;
@@ -140,17 +143,17 @@ public class HttpBodyRequestEncoder {
 
     /**
      *
-     * @return the Map of Cookies where the key are their names
+     * @return the Set of Cookies
      */
-    public Map<String, Cookie> getCookies() {
+    public Set<Cookie> getCookies() {
         return cookies;
     }
 
     /**
-     * Set the cookies map
+     * Set the cookies set
      * @param cookies
      */
-    public void setCookies(Map<String, Cookie> cookies)
+    public void setCookies(Set<Cookie> cookies)
             throws NullPointerException {
         if (cookies == null) {
             throw new NullPointerException("cookies");
@@ -166,14 +169,14 @@ public class HttpBodyRequestEncoder {
         if (cookie == null) {
             throw new NullPointerException("cookie");
         }
-        cookies.put(cookie.getName(), cookie);
+        cookies.add(cookie);
     }
 
     /**
      *
      * @return a Map of URI Attributes where the key are their names
      */
-    public Map<String, List<Attribute>> getUriAttributes() {
+    public Map<String, List<String>> getUriAttributes() {
         return uriAttributes;
     }
 
@@ -181,7 +184,7 @@ public class HttpBodyRequestEncoder {
      * Set the URI Attributes
      * @param attributes
      */
-    public void setUriAttributes(Map<String, List<Attribute>> attributes)
+    public void setUriAttributes(Map<String, List<String>> attributes)
             throws NullPointerException {
         if (attributes == null) {
             throw new NullPointerException("attributes");
@@ -191,26 +194,30 @@ public class HttpBodyRequestEncoder {
 
     /**
      * Add the attribute to the URI map
-     * @param attribute
+     * @param name
+     * @param value
      */
-    public void addUriAttributes(Attribute attribute)
+    public void addUriAttributes(String name, String value)
             throws NullPointerException {
-        if (attribute == null) {
-            throw new NullPointerException("attribute");
+        if (name == null) {
+            throw new NullPointerException("name");
         }
-        List<Attribute> attributes = uriAttributes.get(attribute.getName());
+        if (value == null) {
+            throw new NullPointerException("value");
+        }
+        List<String> attributes = uriAttributes.get(name);
         if (attributes == null) {
-            attributes = new ArrayList<Attribute>();
-            uriAttributes.put(attribute.getName(), attributes);
+            attributes = new ArrayList<String>();
+            uriAttributes.put(name, attributes);
         }
-        attributes.add(attribute);
+        attributes.add(value);
     }
 
     /**
      *
-     * @return a Map of Header Attributes (except Cookie) where the key are their names
+     * @return a Map of Header Attributes where the key are their names
      */
-    public Map<String, List<Attribute>> getHeaderAttributes() {
+    public Map<String, List<String>> getHeaderAttributes() {
         return headerAttributes;
     }
 
@@ -218,7 +225,7 @@ public class HttpBodyRequestEncoder {
      * Set the Header Attributes
      * @param attributes
      */
-    public void setHeaderAttributes(Map<String, List<Attribute>> attributes)
+    public void setHeaderAttributes(Map<String, List<String>> attributes)
             throws NullPointerException {
         if (attributes == null) {
             throw new NullPointerException("attributes");
@@ -228,19 +235,23 @@ public class HttpBodyRequestEncoder {
 
     /**
      * Add the attribute to the Header map
-     * @param attribute
+     * @param name
+     * @param value
      */
-    public void addHeaderAttributes(Attribute attribute)
+    public void addHeaderAttributes(String name, String value)
             throws NullPointerException {
-        if (attribute == null) {
-            throw new NullPointerException("attribute");
+        if (name == null) {
+            throw new NullPointerException("name");
         }
-        List<Attribute> attributes = headerAttributes.get(attribute.getName());
+        if (value == null) {
+            throw new NullPointerException("value");
+        }
+        List<String> attributes = headerAttributes.get(name);
         if (attributes == null) {
-            attributes = new ArrayList<Attribute>();
-            headerAttributes.put(attribute.getName(), attributes);
+            attributes = new ArrayList<String>();
+            headerAttributes.put(name, attributes);
         }
-        attributes.add(attribute);
+        attributes.add(value);
     }
 
     // Here begins the Multipart specificity
@@ -284,11 +295,6 @@ public class HttpBodyRequestEncoder {
      * The current FileUpload that is currently in decode process
      */
     private final FileUpload currentFileUpload = null;
-
-    /**
-     * Keep all FileUpload until cleanFileUploads() is called.
-     */
-    private final List<FileUpload> fileUploadsToDelete = null;
 
     /**
      * Global Body size
@@ -436,15 +442,15 @@ public class HttpBodyRequestEncoder {
             String contentType = fileUpload.getContentType();
             if (contentType != null) {
                 localBodySize += contentType.length() + 1 +
-                        HttpBodyUtil.CONTENT_TYPE.length();
+                HttpHeaders.Names.CONTENT_TYPE.length();
             }
             contentType = fileUpload.getCharset();
             if (contentType != null) {
                 localBodySize += contentType.length() + 3 +
-                        HttpBodyUtil.CHARSET.length();
+                HttpHeaders.Values.CHARSET.length();
             } else {
                 localBodySize += 2 +
-                        HttpBodyUtil.CONTENT_TRANSFER_ENCODING.length() +
+                HttpHeaders.Names.CONTENT_TRANSFER_ENCODING.length() +
                         HttpBodyUtil.TransferEncodingMechanism.BINARY.value
                                 .length();
             }
@@ -479,113 +485,88 @@ public class HttpBodyRequestEncoder {
     public void encodeHeader(boolean serverSide) throws ErrorDataEncoderException {
         //FIXME should we do close ?
         boolean close;
-        try {
-            close = HttpHeaders.Values.CLOSE
-                    .equalsIgnoreCase(headerAttributes.get(
-                            HttpHeaders.Names.CONNECTION).get(0).getValue()) ||
-                    response.getProtocolVersion().equals(HttpVersion.HTTP_1_0) &&
-                    !HttpHeaders.Values.KEEP_ALIVE
-                            .equalsIgnoreCase(headerAttributes.get(
-                                    HttpHeaders.Names.CONNECTION).get(0).getValue());
-        } catch (IOException e) {
-            throw new ErrorDataEncoderException(e);
-        }
-        for (List<Attribute> headers: headerAttributes.values()) {
-            for (Attribute header: headers) {
-                if (header.getName()
-                        .equalsIgnoreCase(HttpBodyUtil.CONTENT_TYPE)) {
-                    // No content type now
-                    break;
-                }
-                try {
-                    response.addHeader(header.getName(), header.getValue());
-                } catch (IOException e) {
-                    throw new ErrorDataEncoderException(e);
-                }
+        close = HttpHeaders.Values.CLOSE .equalsIgnoreCase(headerAttributes.get(
+                HttpHeaders.Names.CONNECTION).get(0)) ||
+                response.getProtocolVersion().equals(HttpVersion.HTTP_1_0) &&
+                !HttpHeaders.Values.KEEP_ALIVE
+                .equalsIgnoreCase(headerAttributes.get(
+                        HttpHeaders.Names.CONNECTION).get(0));
+        List<String> cookieValueFromHeader = null;
+        List<String> contentTypes = null;
+        for (String name: headerAttributes.keySet()) {
+            if (name.equalsIgnoreCase(HttpHeaders.Names.COOKIE)) {
+                // FIXME set cookie later
+                cookieValueFromHeader = headerAttributes.get(name);
+                continue;
+            } else if (name.equalsIgnoreCase(HttpHeaders.Names.CONTENT_TYPE)) {
+                contentTypes = headerAttributes.get(name);
+                continue;
             }
+            response.setHeader(name, headerAttributes.get(name));
         }
         if (!cookies.isEmpty()) {
             CookieEncoder encoder = new CookieEncoder(serverSide);
-            for (Cookie cookie: cookies.values()) {
+            for (Cookie cookie: cookies) {
                 encoder.addCookie(cookie);
+            }
+            if (cookieValueFromHeader != null) {
+                CookieDecoder decoder = new CookieDecoder();
+                for (String scookie : cookieValueFromHeader) {
+                    Set<Cookie> headerCookies = decoder.decode(scookie);
+                    if (!headerCookies.isEmpty()) {
+                        for (Cookie cookie: headerCookies) {
+                            encoder.addCookie(cookie);
+                        }
+                    }
+                }
             }
             response.setHeader("Cookie", encoder.encode());
         }
         if (isMultipart) {
-            // first try to find the content-type
-            List<Attribute> contentTypes = headerAttributes
-                    .get(HttpBodyUtil.CONTENT_TYPE);
             boolean found = false;
             if (contentTypes != null) {
-                for (Attribute contentType: contentTypes) {
-                    String value;
-                    try {
-                        value = contentType.getValue();
-                    } catch (IOException e) {
-                        throw new ErrorDataEncoderException(e);
-                    }
+                for (String contentType: contentTypes) {
                     // "multipart/form-data; boundary=--89421926422648"
-                    if (value.toLowerCase().startsWith(
-                            HttpBodyUtil.MULTIPART_FORM_DATA + "; " +
-                                    HttpBodyUtil.BOUNDARY)) {
+                    if (contentType.toLowerCase().startsWith(
+                            HttpHeaders.Values.MULTIPART_FORM_DATA + "; " +
+                            HttpHeaders.Values.BOUNDARY)) {
                         // OK
-                        response.addHeader(contentType.getName(), value);
+                        response.addHeader(HttpHeaders.Names.CONTENT_TYPE, contentType);
                         found = true;
                         break;
                     }
                 }
             }
             if (!found) {
-                String value = HttpBodyUtil.MULTIPART_FORM_DATA + "; " +
-                        HttpBodyUtil.BOUNDARY + "=";
+                String value = HttpHeaders.Values.MULTIPART_FORM_DATA + "; " +
+                HttpHeaders.Values.BOUNDARY + "=";
                 if (multipartDataBoundary == null) {
                     multipartDataBoundary = "--" + getNewMultipartDelimiter();
                 }
                 value += multipartDataBoundary;
-                Attribute contentType = factory.createAttribute(
-                        HttpBodyUtil.CONTENT_TYPE, value);
-                addHeaderAttributes(contentType);
-                try {
-                    response.addHeader(contentType.getName(), contentType
-                            .getValue());
-                } catch (IOException e) {
-                    throw new ErrorDataEncoderException(e);
-                }
+                addHeaderAttributes(HttpHeaders.Names.CONTENT_TYPE, value);
+                response.addHeader(HttpHeaders.Names.CONTENT_TYPE, value);
             }
         } else {
             // Not multipart
-            List<Attribute> contentTypes = headerAttributes
-                    .get(HttpBodyUtil.CONTENT_TYPE);
             boolean found = false;
             if (contentTypes != null) {
-                for (Attribute contentType: contentTypes) {
-                    String value;
-                    try {
-                        value = contentType.getValue();
-                    } catch (IOException e) {
-                        throw new ErrorDataEncoderException(e);
-                    }
+                for (String contentType: contentTypes) {
                     // "application/x-www-form-urlencoded"
-                    if (value.toLowerCase().startsWith(
+                    if (contentType.toLowerCase().startsWith(
                             HttpBodyUtil.STANDARD_APPLICATION_FORM)) {
                         // OK
-                        response.addHeader(contentType.getName(), value);
+                        response.addHeader(HttpHeaders.Names.CONTENT_TYPE, contentType);
                         found = true;
                         break;
                     }
                 }
             }
             if (!found) {
-                Attribute contentType = factory.createAttribute(
-                        HttpBodyUtil.CONTENT_TYPE,
+                addHeaderAttributes(HttpHeaders.Names.CONTENT_TYPE,
                         HttpBodyUtil.STANDARD_APPLICATION_FORM);
-                addHeaderAttributes(contentType);
-                try {
-                    response.addHeader(contentType.getName(), contentType
-                            .getValue());
-                } catch (IOException e) {
-                    throw new ErrorDataEncoderException(e);
-                }
+                response.addHeader(HttpHeaders.Names.CONTENT_TYPE,
+                        HttpBodyUtil.STANDARD_APPLICATION_FORM);
             }
         }
         // Now consider size for chunk or not

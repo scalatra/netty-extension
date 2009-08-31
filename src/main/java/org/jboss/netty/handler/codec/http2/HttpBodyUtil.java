@@ -32,15 +32,6 @@ import org.jboss.netty.buffer.ChannelBuffer;
  */
 public class HttpBodyUtil {
     /**
-     * HTTP content type header name.
-     */
-    static final String CONTENT_TYPE = "Content-Type";
-
-    static final String BOUNDARY = "boundary";
-
-    static final String CHARSET = "charset";
-
-    /**
      * HTTP content disposition header name.
      */
     static final String CONTENT_DISPOSITION = "Content-Disposition";
@@ -48,11 +39,6 @@ public class HttpBodyUtil {
     static final String NAME = "name";
 
     static final String FILENAME = "filename";
-
-    /**
-     * HTTP content length header name.
-     */
-    static final String CONTENT_LENGTH = "Content-Length";
 
     /**
      * Content-disposition value for form data.
@@ -65,11 +51,6 @@ public class HttpBodyUtil {
     static final String ATTACHMENT = "attachment";
 
     /**
-     * HTTP content type header for multipart forms.
-     */
-    static final String MULTIPART_FORM_DATA = "multipart/form-data";
-
-    /**
      * HTTP content type body attribute for multiple uploads.
      */
     static final String MULTIPART_MIXED = "multipart/mixed";
@@ -78,11 +59,6 @@ public class HttpBodyUtil {
      * Standard HTTP content type header when not multipart forms.
      */
     static final String STANDARD_APPLICATION_FORM = "application/x-www-form-urlencoded";
-
-    /**
-     * HTTP content transfer encoding header name.
-     */
-    static final String CONTENT_TRANSFER_ENCODING = "Content-Transfer-Encoding";
 
     /**
      * Charset for 8BIT

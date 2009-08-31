@@ -324,6 +324,11 @@ public final class HttpHeaders {
         public static final String BINARY = "binary";
 
         /**
+         * {@code "boundary"}
+         */
+        static final String BOUNDARY = "boundary";
+
+        /**
          * {@code "bytes"}
          */
         public static final String BYTES = "bytes";
@@ -387,6 +392,11 @@ public final class HttpHeaders {
          * {@code "max-stale"}
          */
         public static final String MAX_STALE = "max-stale";
+
+        /**
+         * {@code "multipart/form-data"}
+         */
+        static final String MULTIPART_FORM_DATA = "multipart/form-data";
 
         /**
          * {@code "must-revalidate"}

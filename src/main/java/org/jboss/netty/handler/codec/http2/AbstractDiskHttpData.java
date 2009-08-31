@@ -112,7 +112,9 @@ public abstract class AbstractDiskHttpData extends AbstractHttpData implements F
         if (definedSize > 0 && definedSize < size) {
             throw new IOException("Out of size: " + size + " > " + definedSize);
         }
-        file = tempFile();
+        if (file == null) {
+            file = tempFile();
+        }
         if (buffer.readableBytes() == 0) {
             // empty file
             file.createNewFile();
@@ -174,8 +176,12 @@ public abstract class AbstractDiskHttpData extends AbstractHttpData implements F
     }
 
     public void setContent(File file) throws IOException {
+        if (this.file != null) {
+            delete();
+        }
         this.file = file;
         size = file.length();
+        isRenamed = true;
         completed = true;
     }
 

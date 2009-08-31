@@ -58,7 +58,7 @@ public class DiskAttribute extends AbstractDiskHttpData implements Attribute {
      */
     public DiskAttribute(String name, String value)
             throws NullPointerException, IllegalArgumentException, IOException {
-        super(name, HttpCodecUtil.DEFAULT_CHARSET, value.length());
+        super(name, HttpCodecUtil.DEFAULT_CHARSET, 0); // Attribute have no default size
         setValue(value);
     }
 
@@ -77,7 +77,9 @@ public class DiskAttribute extends AbstractDiskHttpData implements Attribute {
         }
         byte [] bytes = value.getBytes(charset);
         ChannelBuffer buffer = ChannelBuffers.wrappedBuffer(bytes);
-        definedSize = buffer.readableBytes();
+        if (definedSize > 0) {
+            definedSize = buffer.readableBytes();
+        }
         setContent(buffer);
     }
 
