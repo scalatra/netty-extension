@@ -5,6 +5,10 @@
 		<author email="fredbregier@free.fr">Frederic Bregier</author>
 	</properties>
 	<body>
+		<release version="1.1.0" date="2009-08-31" description="Fix AggregateChannelBuffer and Http2 Codec">
+			<action dev="Frederic Bregier" type="fix">Fix AggregateChannelBuffer</action>
+			<action dev="Frederic Bregier" type="fix">Fix Http2 Codec</action>
+		</release>
 		<release version="1.0.0" date="2009-08-24" description="Netty Extension">
 			<action dev="Frederic Bregier" type="add">Group extensions to Netty in one project</action>
 		</release>
