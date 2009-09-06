@@ -33,6 +33,7 @@ import org.jboss.netty.bootstrap.ClientBootstrap;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.socket.nio.NioClientSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.QueryStringEncoder;
 import org.jboss.netty.handler.codec.http2.CookieEncoder;
 import org.jboss.netty.handler.codec.http2.DefaultHttpDataFactory;
 import org.jboss.netty.handler.codec.http2.DefaultHttpRequest;
@@ -66,13 +67,15 @@ public class HttpClient {
         }
 
         String baseURI = args[0];
-        String postSimple, postFile;
+        String postSimple, postFile, get;
         if (baseURI.endsWith("/")) {
             postSimple = baseURI+"formpost";
             postFile = baseURI+"formpostmultipart";
+            get = baseURI+"formget";
         } else {
             postSimple = baseURI+"/formpost";
             postFile = baseURI+"/formpostmultipart";
+            get = baseURI+"/formget";
         }
         URI uriSimple;
         try {
@@ -120,7 +123,8 @@ public class HttpClient {
         DiskAttribute.deleteOnExitTemporaryFile = true; // should delete file on exit (in normal exit)
         DiskAttribute.baseDirectory = null; // system temp directory
 
-        // /formpost
+        // XXX /formget
+        // No use of HttpPostRequestEncoder since not a POST
         // Start the connection attempt.
         ChannelFuture future = bootstrap.connect(new InetSocketAddress(host, port));
         // Wait until the connection attempt succeeds or fails.
@@ -132,9 +136,64 @@ public class HttpClient {
         }
 
         // Prepare the HTTP request.
+        QueryStringEncoder encoder = new QueryStringEncoder(get);
+        // add Form attribute
+        encoder.addParam("getform","GET");
+        encoder.addParam("info","first value");
+        encoder.addParam("secondinfo","secondvalue зай&");
+        // not the big one since it is not compatible with GET size
+        // encoder.addParam("thirdinfo", textArea);
+        encoder.addParam("thirdinfo", "third value\r\ntest second line\r\n\r\nnew line\r\n");
+        encoder.addParam("Send","Send");
+
+        URI uriGet;
+        try {
+            uriGet = new URI(encoder.toString());
+        } catch (URISyntaxException e) {
+            System.err.println("Error: "+e.getMessage());
+            return;
+        }
+
         HttpRequest request = new DefaultHttpRequest(
+                HttpVersion.HTTP_1_1, HttpMethod.GET, uriGet.toASCIIString());
+
+        request.setHeader("Accept","text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+        request.setHeader("Accept-Charset","ISO-8859-1,utf-8;q=0.7,*;q=0.7");
+        request.setHeader("Accept-Encoding","gzip,deflate");
+        request.setHeader("Accept-Language","fr,fr-fr;q=0.8,en-us;q=0.5,en;q=0.3");
+        request.setHeader("Connection","keep-alive");
+        request.setHeader("Keep-Alive","300");
+        request.setHeader("Referer","http://127.0.0.1:8080/");
+        request.setHeader("User-Agent","Netty Simple Http Client side");
+        request.setHeader(HttpHeaders.Names.HOST, host);
+        request.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.CLOSE);
+        CookieEncoder httpCookieEncoder = new CookieEncoder(false);
+        httpCookieEncoder.addCookie("my-cookie", "foo");
+        httpCookieEncoder.addCookie("another-cookie", "bar");
+        request.setHeader(HttpHeaders.Names.COOKIE, httpCookieEncoder.encode());
+
+        // send request
+        channel.write(request);
+
+        // Wait for the server to close the connection.
+        channel.getCloseFuture().awaitUninterruptibly();
+
+        // XXX /formpost
+        // Start the connection attempt.
+        future = bootstrap.connect(new InetSocketAddress(host, port));
+        // Wait until the connection attempt succeeds or fails.
+        channel = future.awaitUninterruptibly().getChannel();
+        if (!future.isSuccess()) {
+            future.getCause().printStackTrace();
+            bootstrap.releaseExternalResources();
+            return;
+        }
+
+        // Prepare the HTTP request.
+        request = new DefaultHttpRequest(
                 HttpVersion.HTTP_1_1, HttpMethod.POST, uriSimple.toASCIIString());
 
+        // Use the PostBody encoder
         HttpPostRequestEncoder bodyRequestEncoder = null;
         try {
             bodyRequestEncoder = new HttpPostRequestEncoder(factory,
@@ -158,7 +217,7 @@ public class HttpClient {
         request.setHeader("User-Agent","Netty Simple Http Client side");
         request.setHeader(HttpHeaders.Names.HOST, host);
         request.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.CLOSE);
-        CookieEncoder httpCookieEncoder = new CookieEncoder(false);
+        httpCookieEncoder = new CookieEncoder(false);
         httpCookieEncoder.addCookie("my-cookie", "foo");
         httpCookieEncoder.addCookie("another-cookie", "bar");
         request.setHeader(HttpHeaders.Names.COOKIE, httpCookieEncoder.encode());
@@ -223,7 +282,7 @@ public class HttpClient {
         // Wait for the server to close the connection.
         channel.getCloseFuture().awaitUninterruptibly();
 
-        // /formpostmultipart
+        // XXX /formpostmultipart
         // Start the connection attempt.
         future = bootstrap.connect(new InetSocketAddress(host, port));
         // Wait until the connection attempt succeeds or fails.
@@ -238,6 +297,7 @@ public class HttpClient {
         request = new DefaultHttpRequest(
                 HttpVersion.HTTP_1_1, HttpMethod.POST, uriFile.toASCIIString());
 
+        // Use the PostBody encoder
         try {
             bodyRequestEncoder = new HttpPostRequestEncoder(factory,
                     request, true); // true => multipart
