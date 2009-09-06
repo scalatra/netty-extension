@@ -23,13 +23,13 @@
 package org.jboss.netty.handler.codec.http2;
 
 /**
- * Interface for all Objects that could be encoded/decoded using HttpBodyRequestEncoder/Decoder
+ * Interface for all Objects that could be encoded/decoded using HttpPostRequestEncoder/Decoder
  * @author frederic bregier
  *
  */
 public interface HttpData extends Comparable<HttpData> {
     public static enum HttpDataType {
-        Attribute, FileUpload;
+        Attribute, FileUpload, InternalAttribute;
     }
 
     /**

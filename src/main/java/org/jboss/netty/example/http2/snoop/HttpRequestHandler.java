@@ -23,6 +23,8 @@
 package org.jboss.netty.example.http2.snoop;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,7 +51,7 @@ import org.jboss.netty.handler.codec.http2.DiskFileUpload;
 import org.jboss.netty.handler.codec.http2.FileUpload;
 import org.jboss.netty.handler.codec.http2.HttpChunk;
 import org.jboss.netty.handler.codec.http2.HttpData;
-import org.jboss.netty.handler.codec.http2.HttpBodyRequestDecoder;
+import org.jboss.netty.handler.codec.http2.HttpPostRequestDecoder;
 import org.jboss.netty.handler.codec.http2.HttpDataFactory;
 import org.jboss.netty.handler.codec.http2.HttpHeaders;
 import org.jboss.netty.handler.codec.http2.HttpRequest;
@@ -58,10 +60,10 @@ import org.jboss.netty.handler.codec.http2.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http2.HttpVersion;
 import org.jboss.netty.handler.codec.http2.QueryStringDecoder;
 import org.jboss.netty.handler.codec.http2.HttpData.HttpDataType;
-import org.jboss.netty.handler.codec.http2.HttpBodyRequestDecoder.EndOfDataDecoderException;
-import org.jboss.netty.handler.codec.http2.HttpBodyRequestDecoder.ErrorDataDecoderException;
-import org.jboss.netty.handler.codec.http2.HttpBodyRequestDecoder.IncompatibleDataDecoderException;
-import org.jboss.netty.handler.codec.http2.HttpBodyRequestDecoder.NotEnoughDataDecoderException;
+import org.jboss.netty.handler.codec.http2.HttpPostRequestDecoder.EndOfDataDecoderException;
+import org.jboss.netty.handler.codec.http2.HttpPostRequestDecoder.ErrorDataDecoderException;
+import org.jboss.netty.handler.codec.http2.HttpPostRequestDecoder.IncompatibleDataDecoderException;
+import org.jboss.netty.handler.codec.http2.HttpPostRequestDecoder.NotEnoughDataDecoderException;
 
 /**
  * @author The Netty Project (netty-dev@lists.jboss.org)
@@ -80,9 +82,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private final StringBuilder responseContent = new StringBuilder();
 
     private static final HttpDataFactory factory = new DefaultHttpDataFactory(
-            DefaultHttpDataFactory.MINSIZE); // Disk
+            DefaultHttpDataFactory.MINSIZE); // Disk if size exceed MINSIZE
 
-    private HttpBodyRequestDecoder decoder = null;
+    private HttpPostRequestDecoder decoder = null;
     static {
         DiskFileUpload.deleteOnExitTemporaryFile = true; // should delete file on exit (in normal exit)
         DiskFileUpload.baseDirectory = null; // system temp directory
@@ -109,8 +111,14 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 decoder.cleanFiles();
                 decoder = null;
             }
+
             HttpRequest request = this.request = (HttpRequest) e.getMessage();
-            if (!request.getUri().startsWith("/form")) {
+            URI uri = null;
+            try {
+                uri = new URI(request.getUri());
+            } catch (URISyntaxException e2) {
+            }
+            if (!uri.getPath().startsWith("/form")) {
                 // Write Menu
                 writeMenu(e);
                 return;
@@ -155,9 +163,9 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             }
             responseContent.append("\r\n\r\n");
 
-            // if GET Method: should not try to create a HttpBodyRequestDecoder
+            // if GET Method: should not try to create a HttpPostRequestDecoder
             try {
-                decoder = new HttpBodyRequestDecoder(factory, request);
+                decoder = new HttpPostRequestDecoder(factory, request);
             } catch (ErrorDataDecoderException e1) {
                 e1.printStackTrace();
                 responseContent.append(e1.getMessage());
@@ -165,7 +173,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 Channels.close(e.getChannel());
                 return;
             } catch (IncompatibleDataDecoderException e1) {
-                // GET Method: should not try to create a HttpBodyRequestDecoder
+                // GET Method: should not try to create a HttpPostRequestDecoder
                 // So OK but stop here
                 responseContent.append(e1.getMessage());
                 responseContent.append("\r\n\r\nEND OF GET CONTENT\r\n");

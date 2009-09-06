@@ -240,44 +240,6 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
     }
 
     /* (non-Javadoc)
-     * @see org.jboss.netty.buffer.AbstractChannelBuffer#writeBytes(org.jboss.netty.buffer.ChannelBuffer, int, int)
-     */
-    @Override
-    public void writeBytes(ChannelBuffer src, int srcIndex, int length) {
-        if (src.order() != order) {
-            throw new IllegalArgumentException(
-                    "All buffers must have the same endianness.");
-        }
-        if (src != null) {
-            // will write the given buffer from the previous writerIndex
-            if (capacity() > 0 && order != src.order()) {
-                throw new IllegalArgumentException(
-                        "All buffers must have the same endianness.");
-            }
-            ArrayList<ChannelBuffer> bufferAddedList = new ArrayList<ChannelBuffer>(
-                    1);
-            if (src instanceof AggregateChannelBuffer) {
-                // first clean it
-                AggregateChannelBuffer subbuf = (AggregateChannelBuffer) src;
-                ArrayList<ChannelBuffer> subList = subbuf.getBufferList(
-                        srcIndex, length);
-                bufferAddedList.addAll(subList);
-            } else {
-                ChannelBuffer other = src.slice(srcIndex, length);
-                bufferAddedList.add(other);
-            }
-            int localWriterIndex = this.writerIndex();
-            for (ChannelBuffer buffer: bufferAddedList) {
-                int sublength = buffer.readableBytes();
-                setBytes(localWriterIndex, buffer, buffer.readerIndex(),
-                        sublength);
-                localWriterIndex += sublength;
-            }
-            this.writerIndex(localWriterIndex);
-        }
-    }
-
-    /* (non-Javadoc)
      * @see org.jboss.netty.buffer.AbstractChannelBuffer#discardReadBytes()
      */
     @Override
@@ -339,6 +301,73 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
         localReaderIndex = 0;
         this.readerIndex(localReaderIndex);
         this.writerIndex(localWriterIndex);
+    }
+
+    public ChannelBuffer slice(int index, int length) {
+        if (index == 0) {
+            if (length == 0) {
+                return ChannelBuffers.EMPTY_BUFFER;
+            } else {
+                AggregateChannelBuffer newbuf = new AggregateChannelBuffer(this);
+                newbuf.readerIndex(index);// FIX
+                newbuf.writerIndex(length);
+                return newbuf; // instead of Truncated one
+            }
+        } else if (index < 0 || index > capacity() - length) {
+            throw new IndexOutOfBoundsException();
+        } else if (length == 0) {
+            return ChannelBuffers.EMPTY_BUFFER;
+        } else {
+            // Try to do better than using Sliced here
+            // copy all slices from index to capacity
+            ArrayList<ChannelBuffer> listBuffer = this.getBufferList(index, this.capacity()-index);
+            // create the AggregateChannelBuffer
+            ChannelBuffer [] buffers = new ChannelBuffer[listBuffer.size()];
+            listBuffer.toArray(buffers);
+            AggregateChannelBuffer newbuf = new AggregateChannelBuffer(buffers);
+            // make the correct writerIndex
+            newbuf.writerIndex(length);
+            return newbuf;
+        }
+    }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.buffer.AbstractChannelBuffer#writeBytes(org.jboss.netty.buffer.ChannelBuffer, int, int)
+     */
+
+    public void writeBytes(ChannelBuffer src, int srcIndex, int length) {
+        // FIXME not really useful since setBytes will do the job directly and correctly
+        if (src.order() != order) {
+            throw new IllegalArgumentException(
+                    "All buffers must have the same endianness.");
+        }
+        if (src != null) {
+            // will write the given buffer from the previous writerIndex
+            if (capacity() > 0 && order != src.order()) {
+                throw new IllegalArgumentException(
+                        "All buffers must have the same endianness.");
+            }
+            ArrayList<ChannelBuffer> bufferAddedList = new ArrayList<ChannelBuffer>(
+                    1);
+            if (src instanceof AggregateChannelBuffer) {
+                // first clean it
+                AggregateChannelBuffer subbuf = (AggregateChannelBuffer) src;
+                ArrayList<ChannelBuffer> subList = subbuf.getBufferList(
+                        srcIndex, length);
+                bufferAddedList.addAll(subList);
+            } else {
+                ChannelBuffer other = src.slice(srcIndex, length);
+                bufferAddedList.add(other);
+            }
+            int localWriterIndex = this.writerIndex();
+            for (ChannelBuffer buffer: bufferAddedList) {
+                int sublength = buffer.readableBytes();
+                setBytes(localWriterIndex, buffer, buffer.readerIndex(),
+                        sublength);
+                localWriterIndex += sublength;
+            }
+            this.writerIndex(localWriterIndex);
+        }
     }
 
     // XXX under that point: similar implementation of CompositeChannelBuffer
@@ -730,22 +759,6 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
         }
 
         dst.writerIndex(dst.capacity());
-    }
-
-    public ChannelBuffer slice(int index, int length) {
-        if (index == 0) {
-            if (length == 0) {
-                return ChannelBuffers.EMPTY_BUFFER;
-            } else {
-                return new TruncatedChannelBuffer(this, length);
-            }
-        } else if (index < 0 || index > capacity() - length) {
-            throw new IndexOutOfBoundsException();
-        } else if (length == 0) {
-            return ChannelBuffers.EMPTY_BUFFER;
-        } else {
-            return new SlicedChannelBuffer(this, index, length);
-        }
     }
 
     public ByteBuffer toByteBuffer(int index, int length) {

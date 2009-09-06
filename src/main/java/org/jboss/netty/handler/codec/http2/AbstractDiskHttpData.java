@@ -187,7 +187,9 @@ public abstract class AbstractDiskHttpData extends AbstractHttpData implements F
 
     public void delete() {
         if (! isRenamed) {
-            file.delete();
+            if (file != null) {
+                file.delete();
+            }
         }
     }
 
@@ -204,6 +206,36 @@ public abstract class AbstractDiskHttpData extends AbstractHttpData implements F
         }
         byte[] array = readFrom(file);
         return ChannelBuffers.wrappedBuffer(array);
+    }
+
+    public ChannelBuffer getChunk(int length) throws IOException {
+        if (file == null || length == 0) {
+            return ChannelBuffers.EMPTY_BUFFER;
+        }
+        if (fileChannel == null) {
+            FileInputStream  inputStream = new FileInputStream(file);
+            fileChannel = inputStream.getChannel();
+        }
+        int read = 0;
+        ByteBuffer byteBuffer = ByteBuffer.allocate(length);
+        while (read < length) {
+            int readnow = fileChannel.read(byteBuffer);
+            if (readnow == -1) {
+                fileChannel.close();
+                fileChannel = null;
+                break;
+            } else {
+                read += readnow;
+            }
+        }
+        if (read == 0) {
+            return ChannelBuffers.EMPTY_BUFFER;
+        }
+        byteBuffer.flip();
+        ChannelBuffer buffer = ChannelBuffers.wrappedBuffer(byteBuffer);
+        buffer.readerIndex(0);
+        buffer.writerIndex(read);
+        return buffer;
     }
 
     public String getString() throws IOException {

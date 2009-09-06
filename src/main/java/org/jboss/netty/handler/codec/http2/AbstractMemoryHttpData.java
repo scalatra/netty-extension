@@ -43,6 +43,8 @@ public abstract class AbstractMemoryHttpData extends AbstractHttpData implements
 
     private ChannelBuffer channelBuffer = null;
 
+    private int chunkPosition = 0;
+
     protected boolean isRenamed = false;
 
     public AbstractMemoryHttpData(String name, String charset, long size)
@@ -109,6 +111,7 @@ public abstract class AbstractMemoryHttpData extends AbstractHttpData implements
             read += fileChannel.read(byteBuffer);
         }
         fileChannel.close();
+        byteBuffer.flip();
         channelBuffer = ChannelBuffers.wrappedBuffer(byteBuffer);
         size = newsize;
         completed = true;
@@ -148,6 +151,25 @@ public abstract class AbstractMemoryHttpData extends AbstractHttpData implements
      */
     public ChannelBuffer getChannelBuffer() {
         return channelBuffer;
+    }
+
+    public ChannelBuffer getChunk(int length) throws IOException {
+        if (channelBuffer == null || length == 0 || channelBuffer.readableBytes() == 0) {
+            chunkPosition = 0;
+            return ChannelBuffers.EMPTY_BUFFER;
+        }
+        int sizeLeft = channelBuffer.readableBytes() - chunkPosition;
+        if (sizeLeft == 0) {
+            chunkPosition = 0;
+            return ChannelBuffers.EMPTY_BUFFER;
+        }
+        int sliceLength = length;
+        if (sizeLeft < length) {
+            sliceLength = sizeLeft;
+        }
+        ChannelBuffer chunk = channelBuffer.slice(chunkPosition, sliceLength);
+        chunkPosition += sliceLength;
+        return chunk;
     }
 
     public boolean isInMemory() {

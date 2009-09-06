@@ -314,6 +314,11 @@ public final class HttpHeaders {
      */
     public static final class Values {
         /**
+         * {@code "application/x-www-form-urlencoded"}
+         */
+        public static final String APPLICATION_X_WWW_FORM_URLENCODED =
+            "application/x-www-form-urlencoded";
+        /**
          * {@code "base64"}
          */
         public static final String BASE64 = "base64";

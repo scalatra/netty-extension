@@ -25,50 +25,61 @@ package org.jboss.netty.handler.codec.http2;
 import org.jboss.netty.buffer.ChannelBuffer;
 
 /**
- * Shared Static object between HttpMessageDecoder, HttpBodyRequestDecoder and HttpBodyRequestEncoder
+ * Shared Static object between HttpMessageDecoder, HttpPostRequestDecoder and HttpPostRequestEncoder
  *
  * @author frederic bregier
  *
  */
-public class HttpBodyUtil {
+public class HttpPostBodyUtil {
+    public static int chunkSize = 8096;
     /**
      * HTTP content disposition header name.
      */
-    static final String CONTENT_DISPOSITION = "Content-Disposition";
+    public static final String CONTENT_DISPOSITION = "Content-Disposition";
 
-    static final String NAME = "name";
+    public static final String NAME = "name";
 
-    static final String FILENAME = "filename";
+    public static final String FILENAME = "filename";
 
     /**
      * Content-disposition value for form data.
      */
-    static final String FORM_DATA = "form-data";
+    public static final String FORM_DATA = "form-data";
 
     /**
      * Content-disposition value for file attachment.
      */
-    static final String ATTACHMENT = "attachment";
+    public static final String ATTACHMENT = "attachment";
+
+    /**
+     * Content-disposition value for file attachment.
+     */
+    public static final String FILE = "file";
 
     /**
      * HTTP content type body attribute for multiple uploads.
      */
-    static final String MULTIPART_MIXED = "multipart/mixed";
-
-    /**
-     * Standard HTTP content type header when not multipart forms.
-     */
-    static final String STANDARD_APPLICATION_FORM = "application/x-www-form-urlencoded";
+    public static final String MULTIPART_MIXED = "multipart/mixed";
 
     /**
      * Charset for 8BIT
      */
-    static final String ISO_8859_1 = "ISO-8859-1";
+    public static final String ISO_8859_1 = "ISO-8859-1";
 
     /**
      * Charset for 7BIT
      */
-    static final String US_ASCII = "US-ASCII";
+    public static final String US_ASCII = "US-ASCII";
+
+    /**
+     * Default Content-Type in binary form
+     */
+    public static final String DEFAULT_BINARY_CONTENT_TYPE = "application/octet-stream";
+
+    /**
+     * Default Content-Type in Text form
+     */
+    public static final String DEFAULT_TEXT_CONTENT_TYPE = "text/plain";
 
     /**
      * Allowed mechanism for multipart
@@ -78,7 +89,7 @@ public class HttpBodyUtil {
        Not allowed: "quoted-printable"
                   / "base64"
      */
-    static enum TransferEncodingMechanism {
+    public static enum TransferEncodingMechanism {
         /**
          * Default encoding
          */
@@ -90,7 +101,7 @@ public class HttpBodyUtil {
         /**
          * Could be long text not in ASCII - no encoding
          */
-        BINARY;
+        BINARY("binary");
 
         public String value;
 
@@ -108,11 +119,11 @@ public class HttpBodyUtil {
         }
     }
 
-    private HttpBodyUtil() {
+    private HttpPostBodyUtil() {
         super();
     }
 
-    //Some commons methods between HttpBodyRequestDecoder and HttpMessageDecoder
+    //Some commons methods between HttpPostRequestDecoder and HttpMessageDecoder
     /**
      * Skip control Characters
      * @param buffer

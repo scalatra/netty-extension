@@ -85,6 +85,30 @@ public interface FileHttpData extends HttpData {
     public ChannelBuffer getChannelBuffer() throws IOException;
 
     /**
+     * Returns a ChannelBuffer for the content from the current position with at most length read
+     * bytes, increasing the current position of the Bytes read. Once it arrives at the end,
+     * it returns an EMPTY_BUFFER and it resets the current position to 0.
+     * @param length
+     * @return a ChannelBuffer for the content from the current position or
+     * an EMPTY_BUFFER if there is no more data to return
+     * @throws IOException
+     */
+    public ChannelBuffer getChunk(int length) throws IOException;
+
+    /**
+     * Returns the contents of the file item as a String, using the default character encoding.
+     * @return the contents of the file item as a String, using the default character encoding.
+     */
+    public String getString() throws IOException;
+
+    /**
+     * Returns the contents of the file item as a String, using the specified charset.
+     * @param encoding the charset to use
+     * @return the contents of the file item as a String, using the specified charset.
+     */
+    public String getString(String encoding) throws IOException;
+
+    /**
      * Set the Charset passed by the browser if defined
      * @param charset Charset to set - must be not null
      */
@@ -105,19 +129,6 @@ public interface FileHttpData extends HttpData {
      * @return True if the write is successful
      */
     public boolean renameTo(File dest) throws IOException;
-
-    /**
-     * Returns the contents of the file item as a String, using the default character encoding.
-     * @return the contents of the file item as a String, using the default character encoding.
-     */
-    public String getString() throws IOException;
-
-    /**
-     * Returns the contents of the file item as a String, using the specified charset.
-     * @param encoding the charset to use
-     * @return the contents of the file item as a String, using the specified charset.
-     */
-    public String getString(String encoding) throws IOException;
 
     /**
      * Provides a hint as to whether or not the file contents will be read from memory.

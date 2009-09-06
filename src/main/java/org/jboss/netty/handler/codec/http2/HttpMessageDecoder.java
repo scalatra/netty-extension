@@ -166,7 +166,7 @@ public abstract class HttpMessageDecoder extends
         switch (state) {
         case SKIP_CONTROL_CHARS: {
             try {
-                HttpBodyUtil.skipControlCharacters(buffer);
+                HttpPostBodyUtil.skipControlCharacters(buffer);
                 checkpoint(State.READ_INITIAL);
             } finally {
                 checkpoint();
@@ -572,14 +572,14 @@ public abstract class HttpMessageDecoder extends
         int cStart;
         int cEnd;
 
-        aStart = HttpBodyUtil.findNonWhitespace(sb, 0);
-        aEnd = HttpBodyUtil.findWhitespace(sb, aStart);
+        aStart = HttpPostBodyUtil.findNonWhitespace(sb, 0);
+        aEnd = HttpPostBodyUtil.findWhitespace(sb, aStart);
 
-        bStart = HttpBodyUtil.findNonWhitespace(sb, aEnd);
-        bEnd = HttpBodyUtil.findWhitespace(sb, bStart);
+        bStart = HttpPostBodyUtil.findNonWhitespace(sb, aEnd);
+        bEnd = HttpPostBodyUtil.findWhitespace(sb, bStart);
 
-        cStart = HttpBodyUtil.findNonWhitespace(sb, bEnd);
-        cEnd = HttpBodyUtil.findEndOfString(sb);
+        cStart = HttpPostBodyUtil.findNonWhitespace(sb, bEnd);
+        cEnd = HttpPostBodyUtil.findEndOfString(sb);
 
         return new String[] { sb.substring(aStart, aEnd),
                 sb.substring(bStart, bEnd), sb.substring(cStart, cEnd) };
@@ -592,7 +592,7 @@ public abstract class HttpMessageDecoder extends
         int valueStart;
         int valueEnd;
 
-        nameStart = HttpBodyUtil.findNonWhitespace(sb, 0);
+        nameStart = HttpPostBodyUtil.findNonWhitespace(sb, 0);
         for (nameEnd = nameStart; nameEnd < sb.length(); nameEnd ++) {
             char ch = sb.charAt(nameEnd);
             if (ch == ':' || Character.isWhitespace(ch)) {
@@ -607,8 +607,8 @@ public abstract class HttpMessageDecoder extends
             }
         }
 
-        valueStart = HttpBodyUtil.findNonWhitespace(sb, colonEnd);
-        valueEnd = HttpBodyUtil.findEndOfString(sb);
+        valueStart = HttpPostBodyUtil.findNonWhitespace(sb, colonEnd);
+        valueEnd = HttpPostBodyUtil.findEndOfString(sb);
 
         return new String[] { sb.substring(nameStart, nameEnd),
                 sb.substring(valueStart, valueEnd) };

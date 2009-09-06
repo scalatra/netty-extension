@@ -185,4 +185,8 @@ public class MixedFileUpload implements FileUpload {
     public String toString() {
         return "Mixed: " + fileUpload.toString();
     }
+
+    public ChannelBuffer getChunk(int length) throws IOException {
+        return fileUpload.getChunk(length);
+    }
 }

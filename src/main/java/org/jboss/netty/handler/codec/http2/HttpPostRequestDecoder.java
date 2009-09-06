@@ -33,16 +33,16 @@ import java.util.TreeMap;
 import org.jboss.netty.buffer.AggregateChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.handler.codec.http2.HttpBodyUtil.TransferEncodingMechanism;
+import org.jboss.netty.handler.codec.http2.HttpPostBodyUtil.TransferEncodingMechanism;
 import org.jboss.netty.util.internal.CaseIgnoringComparator;
 
 /**
- * This decoder will decode Body and can handle POST or PUT BODY.
+ * This decoder will decode Body and can handle POST BODY.
  *
  * @author frederic bregier
  *
  */
-public class HttpBodyRequestDecoder {
+public class HttpPostRequestDecoder {
     /**
      * Factory used to create HttpData
      */
@@ -132,7 +132,7 @@ public class HttpBodyRequestDecoder {
     * @throws IncompatibleDataDecoderException if the request has no body to decode
     * @throws ErrorDataDecoderException if the default charset was wrong when decoding or other errors
     */
-    public HttpBodyRequestDecoder(HttpRequest request)
+    public HttpPostRequestDecoder(HttpRequest request)
             throws ErrorDataDecoderException, IncompatibleDataDecoderException,
             NullPointerException {
         this(new DefaultHttpDataFactory(DefaultHttpDataFactory.MINSIZE),
@@ -147,7 +147,7 @@ public class HttpBodyRequestDecoder {
      * @throws IncompatibleDataDecoderException if the request has no body to decode
      * @throws ErrorDataDecoderException if the default charset was wrong when decoding or other errors
      */
-    public HttpBodyRequestDecoder(HttpDataFactory factory, HttpRequest request)
+    public HttpPostRequestDecoder(HttpDataFactory factory, HttpRequest request)
             throws ErrorDataDecoderException, IncompatibleDataDecoderException,
             NullPointerException {
         this(factory, request, HttpCodecUtil.DEFAULT_CHARSET);
@@ -162,7 +162,7 @@ public class HttpBodyRequestDecoder {
      * @throws IncompatibleDataDecoderException if the request has no body to decode
      * @throws ErrorDataDecoderException if the default charset was wrong when decoding or other errors
      */
-    public HttpBodyRequestDecoder(HttpDataFactory factory, HttpRequest request,
+    public HttpPostRequestDecoder(HttpDataFactory factory, HttpRequest request,
             String charset) throws ErrorDataDecoderException,
             IncompatibleDataDecoderException, NullPointerException {
         if (factory == null) {
@@ -224,7 +224,7 @@ public class HttpBodyRequestDecoder {
 
         ... contents of file1.txt ...                          => MIXEDFILEUPLOAD
         --BbC04y                                               => MIXEDDELIMITER
-        Content-disposition: attachment; filename="file2.gif"  => MIXEDDISPOSITION
+        Content-disposition: file; filename="file2.gif"  => MIXEDDISPOSITION
         Content-type: image/gif
         Content-Transfer-Encoding: binary
 
@@ -639,7 +639,7 @@ public class HttpBodyRequestDecoder {
         }
         case FIELD: {
             // Now get value according to Content-Type and Charset
-            String localCharset = charset;
+            String localCharset = null;
             Attribute charsetAttribute = currentFieldAttributes
                     .get(HttpHeaders.Values.CHARSET);
             if (charsetAttribute != null) {
@@ -650,7 +650,7 @@ public class HttpBodyRequestDecoder {
                 }
             }
             Attribute nameAttribute = currentFieldAttributes
-                .get(HttpBodyUtil.NAME);
+                .get(HttpPostBodyUtil.NAME);
             if (currentAttribute == null) {
                 try {
                     currentAttribute = factory.createAttribute(nameAttribute
@@ -662,7 +662,9 @@ public class HttpBodyRequestDecoder {
                 } catch (IOException e) {
                     throw new ErrorDataDecoderException(e);
                 }
-                currentAttribute.setCharset(localCharset);
+                if (localCharset != null) {
+                    currentAttribute.setCharset(localCharset);
+                }
             }
             // load data
             try {
@@ -718,7 +720,7 @@ public class HttpBodyRequestDecoder {
             throws ErrorDataDecoderException {
         // --AaB03x or --AaB03x--
         int readerIndex = undecodedChunk.readerIndex();
-        HttpBodyUtil.skipControlCharacters(undecodedChunk);
+        HttpPostBodyUtil.skipControlCharacters(undecodedChunk);
         skipOneLine();
         String newline;
         try {
@@ -759,7 +761,7 @@ public class HttpBodyRequestDecoder {
         }
         // read many lines until empty line with newline found! Store all data
         while (!skipOneLine()) {
-            HttpBodyUtil.skipControlCharacters(undecodedChunk);
+            HttpPostBodyUtil.skipControlCharacters(undecodedChunk);
             String newline;
             try {
                 newline = readLine();
@@ -768,23 +770,25 @@ public class HttpBodyRequestDecoder {
                 return null;
             }
             String[] contents = splitMultipartHeader(newline);
-            if (contents[0].equalsIgnoreCase(HttpBodyUtil.CONTENT_DISPOSITION)) {
+            if (contents[0].equalsIgnoreCase(HttpPostBodyUtil.CONTENT_DISPOSITION)) {
                 boolean checkSecondArg = false;
                 if (currentStatus == MultiPartStatus.DISPOSITION) {
                     checkSecondArg = contents[1]
-                            .equalsIgnoreCase(HttpBodyUtil.FORM_DATA);
+                            .equalsIgnoreCase(HttpPostBodyUtil.FORM_DATA);
                 } else {
                     checkSecondArg = contents[1]
-                            .equalsIgnoreCase(HttpBodyUtil.ATTACHMENT);
+                            .equalsIgnoreCase(HttpPostBodyUtil.ATTACHMENT) ||
+                            contents[1]
+                            .equalsIgnoreCase(HttpPostBodyUtil.FILE);
                 }
                 if (checkSecondArg) {
-                    // read next values and store them in the list as Attribute
+                    // read next values and store them in the map as Attribute
                     for (int i = 2; i < contents.length; i ++) {
                         String[] values = contents[i].split("=");
                         Attribute attribute;
                         try {
                             attribute = factory.createAttribute(values[0].trim(),
-                                    cleanString(values[1]));
+                                    decodeAttribute(cleanString(values[1]), charset));
                         } catch (NullPointerException e) {
                             throw new ErrorDataDecoderException(e);
                         } catch (IllegalArgumentException e) {
@@ -824,7 +828,7 @@ public class HttpBodyRequestDecoder {
                         attribute);
             } else if (contents[0].equalsIgnoreCase(HttpHeaders.Names.CONTENT_TYPE)) {
                 // Take care of possible "multipart/mixed"
-                if (contents[1].equalsIgnoreCase(HttpBodyUtil.MULTIPART_MIXED)) {
+                if (contents[1].equalsIgnoreCase(HttpPostBodyUtil.MULTIPART_MIXED)) {
                     if (currentStatus == MultiPartStatus.DISPOSITION) {
                         String[] values = contents[2].split("=");
                         multipartMixedBoundary = "--" + values[1];
@@ -855,7 +859,7 @@ public class HttpBodyRequestDecoder {
                             Attribute attribute;
                             try {
                                 attribute = factory.createAttribute(contents[0].trim(),
-                                        cleanString(contents[i]));
+                                        decodeAttribute(cleanString(contents[i]), charset));
                             } catch (NullPointerException e) {
                                 throw new ErrorDataDecoderException(e);
                             } catch (IllegalArgumentException e) {
@@ -873,7 +877,7 @@ public class HttpBodyRequestDecoder {
         }
         // Is it a FileUpload
         Attribute filenameAttribute = currentFieldAttributes
-                .get(HttpBodyUtil.FILENAME);
+                .get(HttpPostBodyUtil.FILENAME);
         if (currentStatus == MultiPartStatus.DISPOSITION) {
             if (filenameAttribute != null) {
                 // FileUpload
@@ -921,13 +925,13 @@ public class HttpBodyRequestDecoder {
             } catch (IOException e) {
                 throw new ErrorDataDecoderException(e);
             }
-            if (code.equals(HttpBodyUtil.TransferEncodingMechanism.BIT7)) {
-                localCharset = HttpBodyUtil.US_ASCII;
-            } else if (code.equals(HttpBodyUtil.TransferEncodingMechanism.BIT8)) {
-                localCharset = HttpBodyUtil.ISO_8859_1;
+            if (code.equals(HttpPostBodyUtil.TransferEncodingMechanism.BIT7.value)) {
+                localCharset = HttpPostBodyUtil.US_ASCII;
+            } else if (code.equals(HttpPostBodyUtil.TransferEncodingMechanism.BIT8.value)) {
+                localCharset = HttpPostBodyUtil.ISO_8859_1;
                 mechanism = TransferEncodingMechanism.BIT8;
             } else if (code
-                    .equals(HttpBodyUtil.TransferEncodingMechanism.BINARY)) {
+                    .equals(HttpPostBodyUtil.TransferEncodingMechanism.BINARY.value)) {
                 // no real charset, so let the default
                 mechanism = TransferEncodingMechanism.BINARY;
             } else {
@@ -946,9 +950,9 @@ public class HttpBodyRequestDecoder {
         }
         if (currentFileUpload == null) {
             Attribute filenameAttribute = currentFieldAttributes
-                    .get(HttpBodyUtil.FILENAME);
+                    .get(HttpPostBodyUtil.FILENAME);
             Attribute nameAttribute = currentFieldAttributes
-                    .get(HttpBodyUtil.NAME);
+                    .get(HttpPostBodyUtil.NAME);
             Attribute contentTypeAttribute = currentFieldAttributes
                     .get(HttpHeaders.Names.CONTENT_TYPE);
             if (contentTypeAttribute == null) {
@@ -1030,7 +1034,7 @@ public class HttpBodyRequestDecoder {
         currentFieldAttributes.remove(HttpHeaders.Names.CONTENT_LENGTH);
         currentFieldAttributes.remove(HttpHeaders.Names.CONTENT_TRANSFER_ENCODING);
         currentFieldAttributes.remove(HttpHeaders.Names.CONTENT_TYPE);
-        currentFieldAttributes.remove(HttpBodyUtil.FILENAME);
+        currentFieldAttributes.remove(HttpPostBodyUtil.FILENAME);
     }
 
     /**
@@ -1319,16 +1323,16 @@ public class HttpBodyRequestDecoder {
         int aEnd;
         int bStart;
         int bEnd;
-        aStart = HttpBodyUtil.findNonWhitespace(sb, 0);
-        aEnd = HttpBodyUtil.findWhitespace(sb, aStart);
+        aStart = HttpPostBodyUtil.findNonWhitespace(sb, 0);
+        aEnd = HttpPostBodyUtil.findWhitespace(sb, aStart);
         if (aEnd >= size) {
             return new String[] { sb, "" };
         }
         if (sb.charAt(aEnd) == ';') {
             aEnd --;
         }
-        bStart = HttpBodyUtil.findNonWhitespace(sb, aEnd);
-        bEnd = HttpBodyUtil.findEndOfString(sb);
+        bStart = HttpPostBodyUtil.findNonWhitespace(sb, aEnd);
+        bEnd = HttpPostBodyUtil.findEndOfString(sb);
         return new String[] { sb.substring(aStart, aEnd),
                 sb.substring(bStart, bEnd) };
     }
@@ -1346,7 +1350,7 @@ public class HttpBodyRequestDecoder {
         int colonEnd;
         int valueStart;
         int valueEnd;
-        nameStart = HttpBodyUtil.findNonWhitespace(sb, 0);
+        nameStart = HttpPostBodyUtil.findNonWhitespace(sb, 0);
         for (nameEnd = nameStart; nameEnd < sb.length(); nameEnd ++) {
             char ch = sb.charAt(nameEnd);
             if (ch == ':' || Character.isWhitespace(ch)) {
@@ -1359,8 +1363,8 @@ public class HttpBodyRequestDecoder {
                 break;
             }
         }
-        valueStart = HttpBodyUtil.findNonWhitespace(sb, colonEnd);
-        valueEnd = HttpBodyUtil.findEndOfString(sb);
+        valueStart = HttpPostBodyUtil.findNonWhitespace(sb, colonEnd);
+        valueEnd = HttpPostBodyUtil.findEndOfString(sb);
         headers.add(sb.substring(nameStart, nameEnd));
         String svalue = sb.substring(valueStart, valueEnd);
         String[] values = null;

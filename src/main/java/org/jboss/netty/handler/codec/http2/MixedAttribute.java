@@ -174,4 +174,8 @@ public class MixedAttribute implements Attribute {
     public void setValue(String value) throws IOException {
         attribute.setValue(value);
     }
+
+    public ChannelBuffer getChunk(int length) throws IOException {
+        return attribute.getChunk(length);
+    }
 }
