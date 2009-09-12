@@ -113,6 +113,12 @@ public class DefaultHttpMessage implements HttpMessage {
         }
     }
 
+    public void setHeaders(Map<String, List<String>> headers) {
+        for (String name: headers.keySet()) {
+            setHeader(name, headers.get(name));
+        }
+    }
+
     private static void validateHeaderName(String name) {
         if (name == null) {
             throw new NullPointerException("name");

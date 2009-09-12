@@ -728,6 +728,8 @@ public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
         assertEquals(0, buffer.readerIndex());
         assertEquals(len-read, buffer.writerIndex());
         assertEquals(copy.slice(read+1, len-read), buffer.slice(0, len-read));
+        // check if slice is not starting at 0 if it is still OK
+        assertEquals(copy.slice(read+1+100, len-read-100), buffer.slice(100, len-read-100));
     }
 
     public static void main(String[] args) {

@@ -34,13 +34,14 @@ import java.util.Random;
 import org.jboss.netty.buffer.AggregateChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.handler.stream.ChunkedInput;
 
 /**
  * This encoder will help to encode Request for a FORM as POST or PUT.
  * @author frederic bregier
  *
  */
-public class HttpPostRequestEncoder {
+public class HttpPostRequestEncoder implements ChunkedInput {
     /**
      * Factory used to create HttpData
      */
@@ -147,6 +148,7 @@ public class HttpPostRequestEncoder {
         bodyListDatas = new ArrayList<HttpData>();
         // default mode
         isLastChunk = false;
+        isLastChunkSent = false;
         isMultipart = multipart;
         multipartHttpDatas = new ArrayList<HttpData>();
         if (isMultipart) {
@@ -166,6 +168,10 @@ public class HttpPostRequestEncoder {
      * Does the last non empty chunk already encoded so that next chunk will be empty (last chunk)
      */
     private boolean isLastChunk = false;
+    /**
+     * Last chunk already sent
+     */
+    private boolean isLastChunkSent = false;
     /**
      * The current FileUpload that is currently in encode process
      */
@@ -645,7 +651,8 @@ public class HttpPostRequestEncoder {
                     HttpHeaders.Values.CHUNKED);
             request.setContent(ChannelBuffers.EMPTY_BUFFER);
         } else {
-            HttpChunk chunk = encodeNextChunk();
+            // get the only one body and set it to the request
+            HttpChunk chunk = nextChunk();
             request.setContent(chunk.getContent());
         }
         return request;
@@ -861,6 +868,23 @@ public class HttpPostRequestEncoder {
         return new DefaultHttpChunk(buffer);
     }
 
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.stream.ChunkedInput#close()
+     */
+    @Override
+    public void close() throws Exception {
+        //NO since the user can want to reuse (broadcast for instance) cleanFiles();
+    }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.stream.ChunkedInput#hasNextChunk()
+     */
+    @Override
+    public boolean hasNextChunk() throws Exception {
+        return (!isLastChunkSent);
+    }
+
     /**
      * Returns the next available HttpChunk. The caller is responsible to test if this chunk is the
      * last one (isLast()), in order to stop calling this method.
@@ -868,8 +892,10 @@ public class HttpPostRequestEncoder {
      * @return the next available HttpChunk
      * @throws ErrorDataEncoderException if the encoding is in error
      */
-    public HttpChunk encodeNextChunk() throws ErrorDataEncoderException {
+    @Override
+    public HttpChunk nextChunk() throws ErrorDataEncoderException {
         if (isLastChunk) {
+            isLastChunkSent = true;
             return new DefaultHttpChunk(ChannelBuffers.EMPTY_BUFFER);
         }
         ChannelBuffer buffer = null;
@@ -926,6 +952,7 @@ public class HttpPostRequestEncoder {
         // end since no more data
         isLastChunk = true;
         if (currentBuffer == null) {
+            isLastChunkSent = true;
             //LastChunk with no more data
             return new DefaultHttpChunk(ChannelBuffers.EMPTY_BUFFER);
         }

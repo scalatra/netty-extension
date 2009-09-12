@@ -144,6 +144,13 @@ public interface HttpMessage {
     void setHeader(String name, Iterable<String> values);
 
     /**
+     * Set all headers from this Map. If there is an existing header with the same name,
+     * the existing header is removed.
+     * @param headers
+     */
+    void setHeaders(Map<String, List<String>> headers);
+
+    /**
      * Removes the header with the specified name.
      */
     void removeHeader(String name);

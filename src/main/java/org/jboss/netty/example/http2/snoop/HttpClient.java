@@ -27,6 +27,7 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 
 import org.jboss.netty.bootstrap.ClientBootstrap;
@@ -39,7 +40,6 @@ import org.jboss.netty.handler.codec.http2.DefaultHttpDataFactory;
 import org.jboss.netty.handler.codec.http2.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http2.DiskAttribute;
 import org.jboss.netty.handler.codec.http2.DiskFileUpload;
-import org.jboss.netty.handler.codec.http2.HttpChunk;
 import org.jboss.netty.handler.codec.http2.HttpData;
 import org.jboss.netty.handler.codec.http2.HttpPostRequestEncoder;
 import org.jboss.netty.handler.codec.http2.HttpDataFactory;
@@ -172,6 +172,7 @@ public class HttpClient {
         httpCookieEncoder.addCookie("another-cookie", "bar");
         request.setHeader(HttpHeaders.Names.COOKIE, httpCookieEncoder.encode());
 
+        Map<String, List<String>> headers = request.getHeaders();
         // send request
         channel.write(request);
 
@@ -207,20 +208,7 @@ public class HttpClient {
         }
 
         // it is legal to add directly header or cookie into the request until finalize
-        request.setHeader("Accept","text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-        request.setHeader("Accept-Charset","ISO-8859-1,utf-8;q=0.7,*;q=0.7");
-        request.setHeader("Accept-Encoding","gzip,deflate");
-        request.setHeader("Accept-Language","fr,fr-fr;q=0.8,en-us;q=0.5,en;q=0.3");
-        request.setHeader("Connection","keep-alive");
-        request.setHeader("Keep-Alive","300");
-        request.setHeader("Referer","http://127.0.0.1:8080/");
-        request.setHeader("User-Agent","Netty Simple Http Client side");
-        request.setHeader(HttpHeaders.Names.HOST, host);
-        request.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.CLOSE);
-        httpCookieEncoder = new CookieEncoder(false);
-        httpCookieEncoder.addCookie("my-cookie", "foo");
-        httpCookieEncoder.addCookie("another-cookie", "bar");
-        request.setHeader(HttpHeaders.Names.COOKIE, httpCookieEncoder.encode());
+        request.setHeaders(headers);
 
         // add Form attribute
         try {
@@ -252,28 +240,8 @@ public class HttpClient {
 
         // test if request was chunked
         if (bodyRequestEncoder.isChunked()) { // could do either request.isChunked()
-            HttpChunk chunk = null;
-            try {
-                chunk = bodyRequestEncoder.encodeNextChunk();
-            } catch (ErrorDataEncoderException e) {
-                // if an error occurs
-                e.printStackTrace();
-            }
-            // instead of a simple while, a method testing writable is preferable
-            // to prevent OOME
-            while (true) {
-                future = channel.write(chunk);
-                if (chunk.isLast()) {
-                    future.awaitUninterruptibly();
-                    break;
-                }
-                try {
-                    chunk = bodyRequestEncoder.encodeNextChunk();
-                } catch (ErrorDataEncoderException e) {
-                    // if an error occurs
-                    e.printStackTrace();
-                }
-            }
+            // either do it through ChunkedWriteHandler
+            channel.write(bodyRequestEncoder);
         }
 
         // Do not clear here since we will reuse the HttpData on the next request for the example
@@ -310,20 +278,7 @@ public class HttpClient {
         }
 
         // it is legal to add directly header or cookie into the request until finalize
-        request.setHeader("Accept","text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-        request.setHeader("Accept-Charset","ISO-8859-1,utf-8;q=0.7,*;q=0.7");
-        request.setHeader("Accept-Encoding","gzip,deflate");
-        request.setHeader("Accept-Language","fr,fr-fr;q=0.8,en-us;q=0.5,en;q=0.3");
-        request.setHeader("Connection","keep-alive");
-        request.setHeader("Keep-Alive","300");
-        request.setHeader("Referer","http://127.0.0.1:8080/");
-        request.setHeader("User-Agent","Netty Simple Http Client side");
-        request.setHeader(HttpHeaders.Names.HOST, host);
-        request.setHeader(HttpHeaders.Names.CONNECTION, HttpHeaders.Values.CLOSE);
-        httpCookieEncoder = new CookieEncoder(false);
-        httpCookieEncoder.addCookie("my-cookie", "foo");
-        httpCookieEncoder.addCookie("another-cookie", "bar");
-        request.setHeader(HttpHeaders.Names.COOKIE, httpCookieEncoder.encode());
+        request.setHeaders(headers);
 
         // add Form attribute
         try {
@@ -349,25 +304,7 @@ public class HttpClient {
 
         // test if request was chunked
         if (bodyRequestEncoder.isChunked()) {
-            HttpChunk chunk = null;
-            try {
-                chunk = bodyRequestEncoder.encodeNextChunk();
-            } catch (ErrorDataEncoderException e) {
-                // if an error occurs
-                e.printStackTrace();
-            }
-            while (true) {
-                channel.write(chunk);
-                if (chunk.isLast()) {
-                    break;
-                }
-                try {
-                    chunk = bodyRequestEncoder.encodeNextChunk();
-                } catch (ErrorDataEncoderException e) {
-                    // if an error occurs
-                    e.printStackTrace();
-                }
-            }
+            channel.write(bodyRequestEncoder);
         }
 
         // Now no more use of file representation
