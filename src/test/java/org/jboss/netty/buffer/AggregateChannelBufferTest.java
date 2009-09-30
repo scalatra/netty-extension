@@ -61,6 +61,7 @@ public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
 
     protected ChannelBuffer newBuffer(int length) {
         buffers = new ArrayList<ChannelBuffer>();
+        int cap = 0;
         for (int i = 0; i < length; i += 10) {
             buffers.add(ChannelBuffers.EMPTY_BUFFER);
             buffers.add(ChannelBuffers.wrappedBuffer(new byte[9]));
@@ -81,6 +82,7 @@ public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
             buffers.add(ChannelBuffers.EMPTY_BUFFER);
             buffers.add(ChannelBuffers.wrappedBuffer(new byte[8]));
             buffers.add(ChannelBuffers.EMPTY_BUFFER);
+            cap += 1+2+3+4+5+6+7+8+9;
         }
 
         buffer = wrappedCheckedBuffer(buffers.toArray(new ChannelBuffer[buffers.size()]));

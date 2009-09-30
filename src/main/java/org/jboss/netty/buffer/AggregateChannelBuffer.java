@@ -253,7 +253,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
         int localWriterIndex = this.writerIndex();
         // Local Length to copy (move)
         // FIXME if copy concerns only readeable then use
-        // int localLength = localWriterIndex - localReaderIndex;
+        //int localLength = localWriterIndex - localReaderIndex;
         int localLength = capacity() - localReaderIndex;
         ArrayList<ChannelBuffer> list = getBufferList(localReaderIndex,
                 localLength);
@@ -309,13 +309,13 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
             } else {
                 // Try to do better than using Sliced here
                 // copy all slices from index to length
-                ArrayList<ChannelBuffer> listBuffer = this.getBufferList(index, length);
+                ArrayList<ChannelBuffer> listBuffer = this.getBufferList(0, length);
                 // create the AggregateChannelBuffer
                 ChannelBuffer [] buffers = new ChannelBuffer[listBuffer.size()];
                 listBuffer.toArray(buffers);
                 AggregateChannelBuffer newbuf = new AggregateChannelBuffer(buffers);
                 // make the correct writerIndex
-                newbuf.readerIndex(index);// FIX
+                newbuf.readerIndex(0);// FIX
                 newbuf.writerIndex(length);
                 return newbuf; // instead of Truncated one
             }
