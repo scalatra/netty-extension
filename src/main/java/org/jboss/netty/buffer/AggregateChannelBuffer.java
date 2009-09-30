@@ -68,7 +68,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
             break;
         case 1:
             if (buffers[0].readable()) {
-                return new AggregateChannelBuffer(buffers);
+                return wrappedCheckedBuffer(buffers[0]);
             }
             break;
         default:
@@ -88,8 +88,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
      */
     public static ChannelBuffer wrappedCheckedBuffer(ChannelBuffer buffer) {
         if (buffer.readable()) {
-            ChannelBuffer[] buffers = { buffer };
-            return new AggregateChannelBuffer(buffers);// not buffer.slice();
+            return buffer.slice();
         } else {
             return ChannelBuffers.EMPTY_BUFFER;
         }
@@ -268,7 +267,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
         // add a buffer to maintain capacity equivalent to discarded read bytes
         // some internal buffers can be removed due to readerIndex
         // FIXME if copy concerns only readeable then use
-        // ChannelBuffer buffer = ChannelBuffers.buffer(this.capacity - firstCapacity);
+        // ChannelBuffer buffer = ChannelBuffers.buffer(this.capacity() - firstCapacity);
         ChannelBuffer buffer = ChannelBuffers.buffer(localReaderIndex);
         list.add(buffer);
         // reset markedReader and markedWriter Indexes in order to get values
@@ -308,7 +307,14 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
             if (length == 0) {
                 return ChannelBuffers.EMPTY_BUFFER;
             } else {
-                AggregateChannelBuffer newbuf = new AggregateChannelBuffer(this);
+                // Try to do better than using Sliced here
+                // copy all slices from index to length
+                ArrayList<ChannelBuffer> listBuffer = this.getBufferList(index, length);
+                // create the AggregateChannelBuffer
+                ChannelBuffer [] buffers = new ChannelBuffer[listBuffer.size()];
+                listBuffer.toArray(buffers);
+                AggregateChannelBuffer newbuf = new AggregateChannelBuffer(buffers);
+                // make the correct writerIndex
                 newbuf.readerIndex(index);// FIX
                 newbuf.writerIndex(length);
                 return newbuf; // instead of Truncated one
@@ -319,8 +325,8 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
             return ChannelBuffers.EMPTY_BUFFER;
         } else {
             // Try to do better than using Sliced here
-            // copy all slices from index to capacity
-            ArrayList<ChannelBuffer> listBuffer = this.getBufferList(index, this.capacity()-index);
+            // copy all slices from index to length
+            ArrayList<ChannelBuffer> listBuffer = this.getBufferList(index, length);
             // create the AggregateChannelBuffer
             ChannelBuffer [] buffers = new ChannelBuffer[listBuffer.size()];
             listBuffer.toArray(buffers);
