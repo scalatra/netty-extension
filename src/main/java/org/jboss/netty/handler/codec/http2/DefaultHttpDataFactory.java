@@ -52,7 +52,7 @@ public class DefaultHttpDataFactory implements HttpDataFactory {
     /**
      * Keep all HttpDatas until cleanAllHttpDatas() is called.
      */
-    private List<FileHttpData> fileToDelete = new ArrayList<FileHttpData>();
+    private List<HttpData> fileToDelete = new ArrayList<HttpData>();
 
     /**
      * HttpData will be in memory if less than default size (16KB).
@@ -151,11 +151,11 @@ public class DefaultHttpDataFactory implements HttpDataFactory {
     }
 
     /* (non-Javadoc)
-     * @see org.jboss.netty.handler.codec.http2.HttpDataFactory#removeHttpDataFromClean(org.jboss.netty.handler.codec.http2.HttpData)
+     * @see org.jboss.netty.handler.codec.http2.HttpDataFactory#removeHttpDataFromClean(org.jboss.netty.handler.codec.http2.InterfaceHttpData)
      */
     @Override
-    public void removeHttpDataFromClean(HttpData data) {
-        if (data instanceof FileHttpData) {
+    public void removeHttpDataFromClean(InterfaceHttpData data) {
+        if (data instanceof HttpData) {
             fileToDelete.remove(data);
         }
     }
@@ -165,7 +165,7 @@ public class DefaultHttpDataFactory implements HttpDataFactory {
      */
     @Override
     public void cleanAllHttpDatas() {
-        for (FileHttpData data: fileToDelete) {
+        for (HttpData data: fileToDelete) {
             data.delete();
         }
         fileToDelete.clear();

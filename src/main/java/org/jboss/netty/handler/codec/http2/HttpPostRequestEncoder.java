@@ -37,13 +37,13 @@ import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.handler.stream.ChunkedInput;
 
 /**
- * This encoder will help to encode Request for a FORM as POST or PUT.
+ * This encoder will help to encode Request for a FORM as POST.
  * @author frederic bregier
  *
  */
 public class HttpPostRequestEncoder implements ChunkedInput {
     /**
-     * Factory used to create HttpData
+     * Factory used to create InterfaceHttpData
      */
     private final HttpDataFactory factory;
 
@@ -63,13 +63,13 @@ public class HttpPostRequestEncoder implements ChunkedInput {
     private boolean isChunked = false;
 
     /**
-     * HttpData for Body (without encoding)
+     * InterfaceHttpData for Body (without encoding)
      */
-    private List<HttpData> bodyListDatas = null;
+    private List<InterfaceHttpData> bodyListDatas = null;
     /**
-     * The final Multipart List of HttpData including encoding
+     * The final Multipart List of InterfaceHttpData including encoding
      */
-    private List<HttpData> multipartHttpDatas = null;
+    private List<InterfaceHttpData> multipartHttpDatas = null;
 
     /**
      * Does this request is a Multipart request
@@ -106,7 +106,7 @@ public class HttpPostRequestEncoder implements ChunkedInput {
 
     /**
      *
-     * @param factory the factory used to create HttpData
+     * @param factory the factory used to create InterfaceHttpData
      * @param request the request to encode
      * @param multipart True if the FORM is a ENCTYPE="multipart/form-data"
      * @throws NullPointerException for request and factory
@@ -119,7 +119,7 @@ public class HttpPostRequestEncoder implements ChunkedInput {
 
     /**
      *
-     * @param factory the factory used to create HttpData
+     * @param factory the factory used to create InterfaceHttpData
      * @param request the request to encode
      * @param multipart True if the FORM is a ENCTYPE="multipart/form-data"
      * @param charset the charset to use as default
@@ -145,12 +145,12 @@ public class HttpPostRequestEncoder implements ChunkedInput {
         this.charset = charset;
         this.factory = factory;
         // Fill default values
-        bodyListDatas = new ArrayList<HttpData>();
+        bodyListDatas = new ArrayList<InterfaceHttpData>();
         // default mode
         isLastChunk = false;
         isLastChunkSent = false;
         isMultipart = multipart;
-        multipartHttpDatas = new ArrayList<HttpData>();
+        multipartHttpDatas = new ArrayList<InterfaceHttpData>();
         if (isMultipart) {
             initDataMultipart();
         }
@@ -221,11 +221,11 @@ public class HttpPostRequestEncoder implements ChunkedInput {
     }
 
     /**
-     * This method returns a List of all HttpData from body part.<br>
+     * This method returns a List of all InterfaceHttpData from body part.<br>
 
-     * @return the list of HttpData from Body part
+     * @return the list of InterfaceHttpData from Body part
      */
-    public List<HttpData> getBodyListAttributes() {
+    public List<InterfaceHttpData> getBodyListAttributes() {
         return bodyListDatas;
     }
 
@@ -235,7 +235,7 @@ public class HttpPostRequestEncoder implements ChunkedInput {
      * @throws NullPointerException for datas
      * @throws ErrorDataEncoderException if the encoding is in error or if the finalize were already done
      */
-    public void setBodyHttpDatas(List<HttpData> datas)
+    public void setBodyHttpDatas(List<InterfaceHttpData> datas)
             throws NullPointerException, ErrorDataEncoderException {
         if (datas == null) {
             throw new NullPointerException("datas");
@@ -245,7 +245,7 @@ public class HttpPostRequestEncoder implements ChunkedInput {
         currentFileUpload = null;
         duringMixedMode = false;
         multipartHttpDatas.clear();
-        for (HttpData data: datas) {
+        for (InterfaceHttpData data: datas) {
             addBodyHttpData(data);
         }
     }
@@ -329,12 +329,12 @@ public class HttpPostRequestEncoder implements ChunkedInput {
     }
 
     /**
-     * Add the HttpData to the Body list
+     * Add the InterfaceHttpData to the Body list
      * @param data
      * @throws NullPointerException for data
      * @throws ErrorDataEncoderException if the encoding is in error or if the finalize were already done
      */
-    public void addBodyHttpData(HttpData data)
+    public void addBodyHttpData(InterfaceHttpData data)
     throws NullPointerException, ErrorDataEncoderException {
         if (headerFinalized) {
             throw new ErrorDataEncoderException("Cannot add value once finalized");
@@ -566,7 +566,7 @@ public class HttpPostRequestEncoder implements ChunkedInput {
     /**
      * Iterator to be used when encoding will be called chunk after chunk
      */
-    private ListIterator<HttpData> iterator = null;
+    private ListIterator<InterfaceHttpData> iterator = null;
 
     /**
      * Finalize the request by preparing the Header in the request and
@@ -689,9 +689,9 @@ public class HttpPostRequestEncoder implements ChunkedInput {
      */
     private ChannelBuffer currentBuffer = null;
     /**
-     * The current HttpData to encode (used if more chunks are available)
+     * The current InterfaceHttpData to encode (used if more chunks are available)
      */
-    private HttpData currentData = null;
+    private InterfaceHttpData currentData = null;
     /**
      * If not multipart, does the currentBuffer stands for the Key or for the Value
      */
@@ -756,7 +756,7 @@ public class HttpPostRequestEncoder implements ChunkedInput {
                 }
             }
             if (buffer.capacity() == 0) {
-                // end for current HttpData, need more data
+                // end for current InterfaceHttpData, need more data
                 currentData = null;
                 return null;
             }
@@ -825,7 +825,7 @@ public class HttpPostRequestEncoder implements ChunkedInput {
                         null;
         }
         if (buffer.capacity() == 0) {
-            // end for current HttpData, need potentially more data
+            // end for current InterfaceHttpData, need potentially more data
             currentData = null;
             if (currentBuffer == null) {
                 currentBuffer = delimiter;
@@ -858,7 +858,7 @@ public class HttpPostRequestEncoder implements ChunkedInput {
             }
         }
         if (currentBuffer.readableBytes() < HttpPostBodyUtil.chunkSize) {
-            // end for current HttpData, need more data
+            // end for current InterfaceHttpData, need more data
             currentData = null;
             isKey = true;
             return null;

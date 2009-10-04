@@ -24,6 +24,7 @@ package org.jboss.netty.handler.codec.http2;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 
@@ -150,6 +151,16 @@ public class MixedAttribute implements Attribute {
         attribute.setContent(file);
     }
 
+    public void setContent(InputStream inputStream) throws IOException {
+        if (attribute instanceof MemoryAttribute) {
+            // change to Disk even if we don't know the size
+            DiskAttribute diskAttribute = new DiskAttribute(attribute
+                    .getName());
+            attribute = diskAttribute;
+        }
+        attribute.setContent(inputStream);
+    }
+
     public HttpDataType getHttpDataType() {
         return attribute.getHttpDataType();
     }
@@ -158,7 +169,7 @@ public class MixedAttribute implements Attribute {
         return attribute.getName();
     }
 
-    public int compareTo(HttpData o) {
+    public int compareTo(InterfaceHttpData o) {
         return attribute.compareTo(o);
     }
 
@@ -178,4 +189,9 @@ public class MixedAttribute implements Attribute {
     public ChannelBuffer getChunk(int length) throws IOException {
         return attribute.getChunk(length);
     }
+
+    public File getFile() throws IOException {
+        return attribute.getFile();
+    }
+
 }

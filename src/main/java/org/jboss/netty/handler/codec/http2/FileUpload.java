@@ -30,7 +30,7 @@ package org.jboss.netty.handler.codec.http2;
  * @author frederic bregier
  *
  */
-public interface FileUpload extends FileHttpData {
+public interface FileUpload extends HttpData {
     /**
      * Returns the original filename in the client's filesystem,
      * as provided by the browser (or other client software).

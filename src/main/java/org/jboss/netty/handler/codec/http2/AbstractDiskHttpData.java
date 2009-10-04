@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
@@ -38,7 +39,7 @@ import org.jboss.netty.buffer.ChannelBuffers;
  * @author frederic bregier
  *
  */
-public abstract class AbstractDiskHttpData extends AbstractHttpData implements FileHttpData {
+public abstract class AbstractDiskHttpData extends AbstractHttpData implements HttpData {
 
     protected File file = null;
 
@@ -185,6 +186,36 @@ public abstract class AbstractDiskHttpData extends AbstractHttpData implements F
         completed = true;
     }
 
+    public void setContent(InputStream inputStream) throws IOException {
+        if (inputStream == null) {
+            throw new NullPointerException("inputStream");
+        }
+        if (this.file != null) {
+            delete();
+        }
+        file = tempFile();
+        FileOutputStream outputStream = new FileOutputStream(file);
+        FileChannel localfileChannel = outputStream.getChannel();
+        byte[] bytes = new byte[4096*4];
+        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+        int read = inputStream.read(bytes);
+        int written = 0;
+        while (read > 0) {
+            byteBuffer.position(read).flip();
+            written += localfileChannel.write(byteBuffer);
+            localfileChannel.force(false);
+            read = inputStream.read(bytes);
+        }
+        size = written;
+        if (definedSize > 0 && definedSize < size) {
+            file.delete();
+            file = null;
+            throw new IOException("Out of size: " + size + " > " + definedSize);
+        }
+        isRenamed = true;
+        completed = true;
+    }
+
     public void delete() {
         if (! isRenamed) {
             if (file != null) {
@@ -307,4 +338,13 @@ public abstract class AbstractDiskHttpData extends AbstractHttpData implements F
         fileChannel.close();
         return array;
     }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.codec.http2.HttpData#getFile()
+     */
+    @Override
+    public File getFile() throws IOException {
+        return file;
+    }
+
 }

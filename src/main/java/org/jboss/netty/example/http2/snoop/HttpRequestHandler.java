@@ -50,7 +50,7 @@ import org.jboss.netty.handler.codec.http2.DiskAttribute;
 import org.jboss.netty.handler.codec.http2.DiskFileUpload;
 import org.jboss.netty.handler.codec.http2.FileUpload;
 import org.jboss.netty.handler.codec.http2.HttpChunk;
-import org.jboss.netty.handler.codec.http2.HttpData;
+import org.jboss.netty.handler.codec.http2.InterfaceHttpData;
 import org.jboss.netty.handler.codec.http2.HttpPostRequestDecoder;
 import org.jboss.netty.handler.codec.http2.HttpDataFactory;
 import org.jboss.netty.handler.codec.http2.HttpHeaders;
@@ -59,7 +59,7 @@ import org.jboss.netty.handler.codec.http2.HttpResponse;
 import org.jboss.netty.handler.codec.http2.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http2.HttpVersion;
 import org.jboss.netty.handler.codec.http2.QueryStringDecoder;
-import org.jboss.netty.handler.codec.http2.HttpData.HttpDataType;
+import org.jboss.netty.handler.codec.http2.InterfaceHttpData.HttpDataType;
 import org.jboss.netty.handler.codec.http2.HttpPostRequestDecoder.EndOfDataDecoderException;
 import org.jboss.netty.handler.codec.http2.HttpPostRequestDecoder.ErrorDataDecoderException;
 import org.jboss.netty.handler.codec.http2.HttpPostRequestDecoder.IncompatibleDataDecoderException;
@@ -220,11 +220,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     }
 
     /**
-     * Example of reading all HttpData from finished transfer
+     * Example of reading all InterfaceHttpData from finished transfer
      * @param channel
      */
     private void readHttpDataAllReceive(Channel channel) {
-        List<HttpData> datas = null;
+        List<InterfaceHttpData> datas = null;
         try {
             datas = decoder.getBodyHttpDatas();
         } catch (NotEnoughDataDecoderException e1) {
@@ -235,7 +235,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
             Channels.close(channel);
             return;
         }
-        for (HttpData data : datas) {
+        for (InterfaceHttpData data : datas) {
             writeHttpData(data);
         }
         responseContent.append("\r\n\r\nEND OF CONTENT AT FINAL END\r\n");
@@ -247,7 +247,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     private void readHttpDataChunkByChunk(Channel channel) {
         try {
             while (decoder.hasNext()) {
-                HttpData data = decoder.next();
+                InterfaceHttpData data = decoder.next();
                 if (data != null) {
                     // new value
                     writeHttpData(data);
@@ -260,7 +260,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         }
     }
 
-    private void writeHttpData(HttpData data) {
+    private void writeHttpData(InterfaceHttpData data) {
         if (data.getHttpDataType() == HttpDataType.Attribute) {
             Attribute attribute = (Attribute) data;
             String value;

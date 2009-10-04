@@ -22,22 +22,24 @@
  */
 package org.jboss.netty.handler.codec.http2;
 
-import java.io.IOException;
-
 /**
- * Attribute interface
+ * Interface for all Objects that could be encoded/decoded using HttpPostRequestEncoder/Decoder
  * @author frederic bregier
  *
  */
-public interface Attribute extends HttpData {
-    /**
-     * Returns the value of this HttpData.
-     */
-    String getValue() throws IOException;
+public interface InterfaceHttpData extends Comparable<InterfaceHttpData> {
+    public static enum HttpDataType {
+        Attribute, FileUpload, InternalAttribute;
+    }
 
     /**
-     * Sets the value of this HttpData.
-     * @param value
+     * Returns the name of this InterfaceHttpData.
      */
-    void setValue(String value) throws IOException;
+    String getName();
+
+    /**
+     *
+     * @return The HttpDataType
+     */
+    HttpDataType getHttpDataType();
 }

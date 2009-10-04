@@ -44,7 +44,7 @@ import org.jboss.netty.util.internal.CaseIgnoringComparator;
  */
 public class HttpPostRequestDecoder {
     /**
-     * Factory used to create HttpData
+     * Factory used to create InterfaceHttpData
      */
     private final HttpDataFactory factory;
 
@@ -71,12 +71,12 @@ public class HttpPostRequestDecoder {
     /**
      * HttpDatas from Body
      */
-    private final List<HttpData> bodyListHttpData = new ArrayList<HttpData>();
+    private final List<InterfaceHttpData> bodyListHttpData = new ArrayList<InterfaceHttpData>();
 
     /**
      * HttpDatas as Map from Body
      */
-    private final Map<String, List<HttpData>> bodyMapHttpData = new TreeMap<String, List<HttpData>>(
+    private final Map<String, List<InterfaceHttpData>> bodyMapHttpData = new TreeMap<String, List<InterfaceHttpData>>(
             CaseIgnoringComparator.INSTANCE);
 
     /**
@@ -141,7 +141,7 @@ public class HttpPostRequestDecoder {
 
     /**
      *
-     * @param factory the factory used to create HttpData
+     * @param factory the factory used to create InterfaceHttpData
      * @param request the request to decode
      * @throws NullPointerException for request or factory
      * @throws IncompatibleDataDecoderException if the request has no body to decode
@@ -155,7 +155,7 @@ public class HttpPostRequestDecoder {
 
     /**
      *
-     * @param factory the factory used to create HttpData
+     * @param factory the factory used to create InterfaceHttpData
      * @param request the request to decode
      * @param charset the charset to use as default
      * @throws NullPointerException for request or charset or factory
@@ -296,7 +296,7 @@ public class HttpPostRequestDecoder {
      * @return the list of HttpDatas from Body part for POST method
      * @throws NotEnoughDataDecoderException Need more chunks
      */
-    public List<HttpData> getBodyHttpDatas()
+    public List<InterfaceHttpData> getBodyHttpDatas()
             throws NotEnoughDataDecoderException {
         if (!isLastChunk) {
             throw new NotEnoughDataDecoderException();
@@ -314,7 +314,7 @@ public class HttpPostRequestDecoder {
      * @return All Body HttpDatas with the given name (ignore case)
      * @throws NotEnoughDataDecoderException need more chunks
      */
-    public List<HttpData> getBodyHttpDatas(String name)
+    public List<InterfaceHttpData> getBodyHttpDatas(String name)
             throws NotEnoughDataDecoderException {
         if (!isLastChunk) {
             throw new NotEnoughDataDecoderException();
@@ -323,21 +323,21 @@ public class HttpPostRequestDecoder {
     }
 
     /**
-     * This method returns the first HttpData with the given name from body.<br>
+     * This method returns the first InterfaceHttpData with the given name from body.<br>
      *
      * If chunked, all chunks must have been offered using offer() method.
      * If not, NotEnoughDataDecoderException will be raised.
     *
     * @param name
-    * @return The first Body HttpData with the given name (ignore case)
+    * @return The first Body InterfaceHttpData with the given name (ignore case)
     * @throws NotEnoughDataDecoderException need more chunks
     */
-    public HttpData getBodyHttpData(String name)
+    public InterfaceHttpData getBodyHttpData(String name)
             throws NotEnoughDataDecoderException {
         if (!isLastChunk) {
             throw new NotEnoughDataDecoderException();
         }
-        List<HttpData> list = bodyMapHttpData.get(name);
+        List<InterfaceHttpData> list = bodyMapHttpData.get(name);
         if (list != null) {
             return list.get(0);
         }
@@ -367,11 +367,11 @@ public class HttpPostRequestDecoder {
     }
 
     /**
-     * True if at current status, there is an available decoded HttpData from the Body.
+     * True if at current status, there is an available decoded InterfaceHttpData from the Body.
      *
      * This method works for chunked and not chunked request.
      *
-     * @return True if at current status, there is a decoded HttpData
+     * @return True if at current status, there is a decoded InterfaceHttpData
      * @throws EndOfDataDecoderException No more data will be available
      */
     public boolean hasNext() throws EndOfDataDecoderException {
@@ -386,13 +386,13 @@ public class HttpPostRequestDecoder {
     }
 
     /**
-     * Returns the next available HttpData or null if, at the time it is called, there is no more
-     * available HttpData. A subsequent call to offer(httpChunk) could enable more data.
+     * Returns the next available InterfaceHttpData or null if, at the time it is called, there is no more
+     * available InterfaceHttpData. A subsequent call to offer(httpChunk) could enable more data.
      *
-     * @return the next available HttpData or null if none
+     * @return the next available InterfaceHttpData or null if none
      * @throws EndOfDataDecoderException No more data will be available
      */
-    public HttpData next() throws EndOfDataDecoderException {
+    public InterfaceHttpData next() throws EndOfDataDecoderException {
         if (hasNext()) {
             return bodyListHttpData.get(bodyListHttpDataRank++);
         }
@@ -423,13 +423,13 @@ public class HttpPostRequestDecoder {
      * Utility function to add a new decoded data
      * @param data
      */
-    private void addHttpData(HttpData data) {
+    private void addHttpData(InterfaceHttpData data) {
         if (data == null) {
             return;
         }
-        List<HttpData> datas = bodyMapHttpData.get(data.getName());
+        List<InterfaceHttpData> datas = bodyMapHttpData.get(data.getName());
         if (datas == null) {
-            datas = new ArrayList<HttpData>(1);
+            datas = new ArrayList<InterfaceHttpData>(1);
             bodyMapHttpData.put(data.getName(), datas);
         }
         datas.add(data);
@@ -583,7 +583,7 @@ public class HttpPostRequestDecoder {
             // nothing to decode
             return;
         }
-        HttpData data = decodeMultipart(currentStatus);
+        InterfaceHttpData data = decodeMultipart(currentStatus);
         while (data != null) {
             addHttpData(data);
             if (currentStatus == MultiPartStatus.PREEPILOGUE ||
@@ -607,10 +607,10 @@ public class HttpPostRequestDecoder {
      * Inspired from HttpMessageDecoder
      *
      * @param state
-     * @return the next decoded HttpData or null if none until now.
+     * @return the next decoded InterfaceHttpData or null if none until now.
      * @throws ErrorDataDecoderException if an error occurs
      */
-    private HttpData decodeMultipart(MultiPartStatus state)
+    private InterfaceHttpData decodeMultipart(MultiPartStatus state)
             throws ErrorDataDecoderException {
         switch (state) {
         case NOTSTARTED:
@@ -711,10 +711,10 @@ public class HttpPostRequestDecoder {
      * @param delimiter delimiter to find
      * @param dispositionStatus the next status if the delimiter is a start
      * @param closeDelimiterStatus the next status if the delimiter is a close delimiter
-     * @return the next HttpData if any
+     * @return the next InterfaceHttpData if any
      * @throws ErrorDataDecoderException
      */
-    private HttpData findMultipartDelimiter(String delimiter,
+    private InterfaceHttpData findMultipartDelimiter(String delimiter,
             MultiPartStatus dispositionStatus,
             MultiPartStatus closeDelimiterStatus)
             throws ErrorDataDecoderException {
@@ -749,10 +749,10 @@ public class HttpPostRequestDecoder {
 
     /**
      * Find the next Disposition
-     * @return the next HttpData if any
+     * @return the next InterfaceHttpData if any
      * @throws ErrorDataDecoderException
      */
-    private HttpData findMultipartDisposition()
+    private InterfaceHttpData findMultipartDisposition()
             throws ErrorDataDecoderException {
         int readerIndex = undecodedChunk.readerIndex();
         if (currentStatus == MultiPartStatus.DISPOSITION) {
@@ -906,10 +906,10 @@ public class HttpPostRequestDecoder {
     /**
      * Get the FileUpload (new one or current one)
      * @param delimiter the delimiter to use
-     * @return the HttpData if any
+     * @return the InterfaceHttpData if any
      * @throws ErrorDataDecoderException
      */
-    private HttpData getFileUpload(String delimiter)
+    private InterfaceHttpData getFileUpload(String delimiter)
             throws ErrorDataDecoderException {
         // eventually restart from existing FileUpload
         // Now get value according to Content-Type and Charset
@@ -1022,7 +1022,7 @@ public class HttpPostRequestDecoder {
      * Remove the given FileUpload from the list of FileUploads to clean
      * @param fileUpload
      */
-    public void removeHttpDataFromClean(HttpData data) {
+    public void removeHttpDataFromClean(InterfaceHttpData data) {
         factory.removeHttpDataFromClean(data);
     }
 

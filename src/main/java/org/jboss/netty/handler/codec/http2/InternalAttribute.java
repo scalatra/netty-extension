@@ -32,7 +32,7 @@ import java.util.List;
  * @author frederic bregier
  *
  */
-public class InternalAttribute implements HttpData {
+public class InternalAttribute implements InterfaceHttpData {
     protected List<String> value = new ArrayList<String>();
 
     /**
@@ -87,7 +87,7 @@ public class InternalAttribute implements HttpData {
         return getName().equalsIgnoreCase(attribute.getName());
     }
 
-    public int compareTo(HttpData arg0) {
+    public int compareTo(InterfaceHttpData arg0) {
         if (!(arg0 instanceof InternalAttribute)) {
             throw new ClassCastException("Cannot compare " + getHttpDataType() +
                     " with " + arg0.getHttpDataType());

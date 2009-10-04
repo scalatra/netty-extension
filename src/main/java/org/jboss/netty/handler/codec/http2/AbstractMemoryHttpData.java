@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
@@ -39,7 +40,7 @@ import org.jboss.netty.buffer.ChannelBuffers;
  * @author frederic bregier
  *
  */
-public abstract class AbstractMemoryHttpData extends AbstractHttpData implements FileHttpData {
+public abstract class AbstractMemoryHttpData extends AbstractHttpData implements HttpData {
 
     private ChannelBuffer channelBuffer = null;
 
@@ -63,6 +64,27 @@ public abstract class AbstractMemoryHttpData extends AbstractHttpData implements
         }
         channelBuffer = buffer;
         size = localsize;
+        completed = true;
+    }
+
+    public void setContent(InputStream inputStream) throws IOException {
+        if (inputStream == null) {
+            throw new NullPointerException("inputStream");
+        }
+        ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
+        byte[] bytes = new byte[4096*4];
+        int read = inputStream.read(bytes);
+        int written = 0;
+        while (read > 0) {
+            buffer.writeBytes(bytes);
+            written += read;
+            read = inputStream.read(bytes);
+        }
+        size = written;
+        if (definedSize > 0 && definedSize < size) {
+            throw new IOException("Out of size: " + size + " > " + definedSize);
+        }
+        channelBuffer = buffer;
         completed = true;
     }
 
@@ -198,5 +220,12 @@ public abstract class AbstractMemoryHttpData extends AbstractHttpData implements
         fileChannel.close();
         isRenamed = true;
         return written == length;
+    }
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.codec.http2.HttpData#getFile()
+     */
+    @Override
+    public File getFile() throws IOException {
+        throw new IOException("Not represented by a file");
     }
 }

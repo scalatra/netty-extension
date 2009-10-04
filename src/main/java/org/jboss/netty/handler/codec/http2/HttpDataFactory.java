@@ -23,7 +23,7 @@
 package org.jboss.netty.handler.codec.http2;
 
 /**
- * Interface to enable creation of HttpData objects
+ * Interface to enable creation of InterfaceHttpData objects
  *
  * @author frederic bregier
  *
@@ -64,14 +64,14 @@ public interface HttpDataFactory {
             long size) throws NullPointerException, IllegalArgumentException;
 
     /**
-     * Remove the given HttpData from clean list (will not delete the file, except if the file
+     * Remove the given InterfaceHttpData from clean list (will not delete the file, except if the file
      * is still a temporary one as setup at construction)
      * @param data
      */
-    public void removeHttpDataFromClean(HttpData data);
+    public void removeHttpDataFromClean(InterfaceHttpData data);
 
     /**
-     * Remove all HttpData from virtual File storage from clean list
+     * Remove all InterfaceHttpData from virtual File storage from clean list
      */
     public void cleanAllHttpDatas();
 }

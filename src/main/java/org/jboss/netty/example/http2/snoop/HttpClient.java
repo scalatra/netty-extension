@@ -40,7 +40,7 @@ import org.jboss.netty.handler.codec.http2.DefaultHttpDataFactory;
 import org.jboss.netty.handler.codec.http2.DefaultHttpRequest;
 import org.jboss.netty.handler.codec.http2.DiskAttribute;
 import org.jboss.netty.handler.codec.http2.DiskFileUpload;
-import org.jboss.netty.handler.codec.http2.HttpData;
+import org.jboss.netty.handler.codec.http2.InterfaceHttpData;
 import org.jboss.netty.handler.codec.http2.HttpPostRequestEncoder;
 import org.jboss.netty.handler.codec.http2.HttpDataFactory;
 import org.jboss.netty.handler.codec.http2.HttpHeaders;
@@ -140,7 +140,7 @@ public class HttpClient {
         // add Form attribute
         encoder.addParam("getform","GET");
         encoder.addParam("info","first value");
-        encoder.addParam("secondinfo","secondvalue зай&");
+        encoder.addParam("secondinfo","secondvalue пїЅпїЅпїЅ&");
         // not the big one since it is not compatible with GET size
         // encoder.addParam("thirdinfo", textArea);
         encoder.addParam("thirdinfo", "third value\r\ntest second line\r\n\r\nnew line\r\n");
@@ -214,7 +214,7 @@ public class HttpClient {
         try {
             bodyRequestEncoder.addBodyAttribute("getform","POST");
             bodyRequestEncoder.addBodyAttribute("info","first value");
-            bodyRequestEncoder.addBodyAttribute("secondinfo","secondvalue зай&");
+            bodyRequestEncoder.addBodyAttribute("secondinfo","secondvalue пїЅпїЅпїЅ&");
             bodyRequestEncoder.addBodyAttribute("thirdinfo", textArea);
             bodyRequestEncoder.addBodyFileUpload("myfile", file, "application/x-zip-compressed", false);
             bodyRequestEncoder.addBodyAttribute("Send","Send");
@@ -233,7 +233,7 @@ public class HttpClient {
             // if an encoding error occurs
             e.printStackTrace();
         }
-        List<HttpData> bodylist = bodyRequestEncoder.getBodyListAttributes();
+        List<InterfaceHttpData> bodylist = bodyRequestEncoder.getBodyListAttributes();
 
         // send request
         channel.write(request);
@@ -244,7 +244,7 @@ public class HttpClient {
             channel.write(bodyRequestEncoder);
         }
 
-        // Do not clear here since we will reuse the HttpData on the next request for the example
+        // Do not clear here since we will reuse the InterfaceHttpData on the next request for the example
         // bodyRequestEncoder.cleanFiles();
 
         // Wait for the server to close the connection.
@@ -318,7 +318,7 @@ public class HttpClient {
 
     // use to simulate a big TEXTAREA field in a form
     private static String textArea =
-        "lkjlkjlKJLKJLKJLKJLJlkj lklkj\r\n\r\nLKJJJJJJJJKKKKKKKKKKKKKKK ййаз&\r\n\r\n"+
+        "lkjlkjlKJLKJLKJLKJLJlkj lklkj\r\n\r\nLKJJJJJJJJKKKKKKKKKKKKKKK пїЅпїЅпїЅпїЅ&\r\n\r\n"+
         "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM\r\n"+
         "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM\r\n"+
         "MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM\r\n"+

@@ -28,7 +28,7 @@ package org.jboss.netty.handler.codec.http2;
  * @author frederic bregier
  *
  */
-public abstract class AbstractHttpData implements FileHttpData {
+public abstract class AbstractHttpData implements HttpData {
 
     protected final String name;
 

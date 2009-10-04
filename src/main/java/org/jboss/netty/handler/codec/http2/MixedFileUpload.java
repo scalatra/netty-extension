@@ -24,6 +24,7 @@ package org.jboss.netty.handler.codec.http2;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 
@@ -157,6 +158,19 @@ public class MixedFileUpload implements FileUpload {
         fileUpload.setContent(file);
     }
 
+    public void setContent(InputStream inputStream) throws IOException {
+        if (fileUpload instanceof MemoryFileUpload) {
+            // change to Disk
+            DiskFileUpload diskFileUpload = new DiskFileUpload(fileUpload
+                    .getName(), fileUpload.getFilename(), fileUpload
+                    .getContentType(), fileUpload
+                    .getContentTransferEncoding(), fileUpload.getCharset(),
+                    definedSize);
+            fileUpload = diskFileUpload;
+        }
+        fileUpload.setContent(inputStream);
+    }
+
     public void setContentType(String contentType) {
         fileUpload.setContentType(contentType);
     }
@@ -177,7 +191,7 @@ public class MixedFileUpload implements FileUpload {
         return fileUpload.getName();
     }
 
-    public int compareTo(HttpData o) {
+    public int compareTo(InterfaceHttpData o) {
         return fileUpload.compareTo(o);
     }
 
@@ -189,4 +203,9 @@ public class MixedFileUpload implements FileUpload {
     public ChannelBuffer getChunk(int length) throws IOException {
         return fileUpload.getChunk(length);
     }
+
+    public File getFile() throws IOException {
+        return fileUpload.getFile();
+    }
+
 }
