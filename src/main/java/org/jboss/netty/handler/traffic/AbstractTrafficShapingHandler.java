@@ -23,6 +23,7 @@
 package org.jboss.netty.handler.traffic;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelEvent;
@@ -111,6 +112,13 @@ public abstract class AbstractTrafficShapingHandler extends
      * Delay between two performance snapshots
      */
     protected long checkInterval = DEFAULT_CHECK_INTERVAL; // default 1 s
+
+    /**
+     * Boolean associated with the release of this TrafficShapingHandler.
+     * It will be true only once when the releaseExternalRessources is called
+     * to prevent waiting when shutdown.
+     */
+    private AtomicBoolean release = new AtomicBoolean(false);
 
     /**
     * @param newObjectSizeEstimator
@@ -361,6 +369,9 @@ public abstract class AbstractTrafficShapingHandler extends
          */
         public void run() {
             try {
+                if (release.get()) {
+                    return;
+                }
                 Thread.sleep(timeToWait);
             } catch (InterruptedException e) {
                 // interruption so exit
@@ -417,6 +428,9 @@ public abstract class AbstractTrafficShapingHandler extends
                         if (executor == null) {
                             // Sleep since no executor
                             //logger.info("Read sleep since no executor for "+wait+" ms for "+this);
+                            if (release.get()) {
+                                return;
+                            }
                             Thread.sleep(wait);
                             return;
                         }
@@ -429,11 +443,17 @@ public abstract class AbstractTrafficShapingHandler extends
                         } else {
                             // should be waiting: but can occurs sometime so as a FIX
                             //logger.info("Read sleep ok but should not be here: "+wait+" "+this);
+                            if (release.get()) {
+                                return;
+                            }
                             Thread.sleep(wait);
                         }
                     } else {
                         // Not connected or no channel
                         //logger.info("Read sleep "+wait+" ms for "+this);
+                        if (release.get()) {
+                            return;
+                        }
                         Thread.sleep(wait);
                     }
                 }
@@ -462,6 +482,9 @@ public abstract class AbstractTrafficShapingHandler extends
                     curtime);
             if (wait > MINIMAL_WAIT) {
                 // Global or Channel
+                if (release.get()) {
+                    return;
+                }
                 Thread.sleep(wait);
             }
         } finally {
@@ -507,6 +530,7 @@ public abstract class AbstractTrafficShapingHandler extends
         if (trafficCounter != null) {
             trafficCounter.stop();
         }
+        release.set(true);
         ExecutorUtil.terminate(executor);
     }
 
