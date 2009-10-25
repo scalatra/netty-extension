@@ -872,7 +872,6 @@ public class HttpPostRequestEncoder implements ChunkedInput {
     /* (non-Javadoc)
      * @see org.jboss.netty.handler.stream.ChunkedInput#close()
      */
-    @Override
     public void close() throws Exception {
         //NO since the user can want to reuse (broadcast for instance) cleanFiles();
     }
@@ -880,7 +879,6 @@ public class HttpPostRequestEncoder implements ChunkedInput {
     /* (non-Javadoc)
      * @see org.jboss.netty.handler.stream.ChunkedInput#hasNextChunk()
      */
-    @Override
     public boolean hasNextChunk() throws Exception {
         return (!isLastChunkSent);
     }
@@ -892,7 +890,6 @@ public class HttpPostRequestEncoder implements ChunkedInput {
      * @return the next available HttpChunk
      * @throws ErrorDataEncoderException if the encoding is in error
      */
-    @Override
     public HttpChunk nextChunk() throws ErrorDataEncoderException {
         if (isLastChunk) {
             isLastChunkSent = true;

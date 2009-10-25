@@ -342,7 +342,6 @@ public abstract class AbstractDiskHttpData extends AbstractHttpData implements H
     /* (non-Javadoc)
      * @see org.jboss.netty.handler.codec.http2.HttpData#getFile()
      */
-    @Override
     public File getFile() throws IOException {
         return file;
     }

@@ -5,6 +5,10 @@
 		<author email="fredbregier@free.fr">Frederic Bregier</author>
 	</properties>
 	<body>
+		<release version="1.1.2" date="2009-10-25" description="Various Fix">
+			<action dev="Frederic Bregier" type="fix">Fix AbstractTrafficShaping</action>
+			<action dev="Frederic Bregier" type="fix">Fix notations</action>
+		</release>
 		<release version="1.1.1" date="2009-10-20" description="Various Fix">
 			<action dev="Frederic Bregier" type="fix">Fix AbstractTrafficShaping by resetting the bandwidth when new limits are setting</action>
 			<action dev="Frederic Bregier" type="fix">Fix AggregateChannelBuffer</action>

@@ -224,7 +224,6 @@ public abstract class AbstractMemoryHttpData extends AbstractHttpData implements
     /* (non-Javadoc)
      * @see org.jboss.netty.handler.codec.http2.HttpData#getFile()
      */
-    @Override
     public File getFile() throws IOException {
         throw new IOException("Not represented by a file");
     }

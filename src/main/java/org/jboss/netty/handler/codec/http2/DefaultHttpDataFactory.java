@@ -87,7 +87,6 @@ public class DefaultHttpDataFactory implements HttpDataFactory {
     /* (non-Javadoc)
      * @see org.jboss.netty.handler.codec.http2.HttpDataFactory#createAttribute(java.lang.String)
      */
-    @Override
     public Attribute createAttribute(String name) throws NullPointerException,
             IllegalArgumentException {
         if (useDisk) {
@@ -153,7 +152,6 @@ public class DefaultHttpDataFactory implements HttpDataFactory {
     /* (non-Javadoc)
      * @see org.jboss.netty.handler.codec.http2.HttpDataFactory#removeHttpDataFromClean(org.jboss.netty.handler.codec.http2.InterfaceHttpData)
      */
-    @Override
     public void removeHttpDataFromClean(InterfaceHttpData data) {
         if (data instanceof HttpData) {
             fileToDelete.remove(data);
@@ -163,7 +161,6 @@ public class DefaultHttpDataFactory implements HttpDataFactory {
     /* (non-Javadoc)
      * @see org.jboss.netty.handler.codec.http2.HttpDataFactory#cleanAllHttpData()
      */
-    @Override
     public void cleanAllHttpDatas() {
         for (HttpData data: fileToDelete) {
             data.delete();

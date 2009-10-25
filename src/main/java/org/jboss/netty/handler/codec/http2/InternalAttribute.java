@@ -114,7 +114,7 @@ public class InternalAttribute implements InterfaceHttpData {
         }
         return result.toString();
     }
-    @Override
+
     public String getName() {
         return "InternalAttribute";
     }
