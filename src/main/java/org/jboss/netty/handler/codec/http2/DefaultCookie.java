@@ -38,8 +38,7 @@ import org.jboss.netty.util.internal.CaseIgnoringComparator;
  */
 public class DefaultCookie implements Cookie {
 
-    private static final Set<String> RESERVED_NAMES = new TreeSet<String>(
-            CaseIgnoringComparator.INSTANCE);
+    private static final Set<String> RESERVED_NAMES = new TreeSet<String>(CaseIgnoringComparator.INSTANCE);
 
     static {
         RESERVED_NAMES.add("Domain");
@@ -52,31 +51,22 @@ public class DefaultCookie implements Cookie {
         RESERVED_NAMES.add("Expires");
         RESERVED_NAMES.add("Version");
         RESERVED_NAMES.add("Secure");
+        RESERVED_NAMES.add("HTTPOnly");
     }
 
     private final String name;
-
     private String value;
-
     private String domain;
-
     private String path;
-
     private String comment;
-
     private String commentUrl;
-
     private boolean discard;
-
     private Set<Integer> ports = Collections.emptySet();
-
     private Set<Integer> unmodifiablePorts = ports;
-
     private int maxAge = -1;
-
     private int version;
-
     private boolean secure;
+    private boolean httpOnly;
 
     /**
      * Creates a new cookie with the specified name and value.
@@ -99,18 +89,12 @@ public class DefaultCookie implements Cookie {
 
             // Check prohibited characters.
             switch (c) {
-            case '=':
-            case ',':
-            case ';':
-            case ' ':
-            case '\t':
-            case '\r':
-            case '\n':
-            case '\f':
+            case '=':  case ',':  case ';': case ' ':
+            case '\t': case '\r': case '\n': case '\f':
             case 0x0b: // Vertical tab
                 throw new IllegalArgumentException(
                         "name contains one of the following prohibited characters: " +
-                                "=,; \\t\\r\\n\\v\\f: " + name);
+                        "=,; \\t\\r\\n\\v\\f: " + name);
             }
         }
 
@@ -196,8 +180,7 @@ public class DefaultCookie implements Cookie {
             Set<Integer> newPorts = new TreeSet<Integer>();
             for (int p: portsCopy) {
                 if (p <= 0 || p > 65535) {
-                    throw new IllegalArgumentException("port out of range: " +
-                            p);
+                    throw new IllegalArgumentException("port out of range: " + p);
                 }
                 newPorts.add(Integer.valueOf(p));
             }
@@ -230,7 +213,7 @@ public class DefaultCookie implements Cookie {
         if (maxAge < -1) {
             throw new IllegalArgumentException(
                     "maxAge must be either -1, 0, or a positive integer: " +
-                            maxAge);
+                    maxAge);
         }
         this.maxAge = maxAge;
     }
@@ -249,6 +232,14 @@ public class DefaultCookie implements Cookie {
 
     public void setSecure(boolean secure) {
         this.secure = secure;
+    }
+
+    public boolean isHttpOnly() {
+        return httpOnly;
+    }
+
+    public void setHttpOnly(boolean httpOnly) {
+        this.httpOnly = httpOnly;
     }
 
     @Override
@@ -340,6 +331,9 @@ public class DefaultCookie implements Cookie {
         if (isSecure()) {
             buf.append(", secure");
         }
+        if (isHttpOnly()) {
+            buf.append(", HTTPOnly");
+        }
         return buf.toString();
     }
 
@@ -354,15 +348,10 @@ public class DefaultCookie implements Cookie {
         for (int i = 0; i < value.length(); i ++) {
             char c = value.charAt(i);
             switch (c) {
-            case '\r':
-            case '\n':
-            case '\f':
-            case 0x0b:
-            case ';':
+            case '\r': case '\n': case '\f': case 0x0b: case ';':
                 throw new IllegalArgumentException(
-                        name +
-                                " contains one of the following prohibited characters: " +
-                                ";\\r\\n\\f\\v (" + value + ')');
+                        name + " contains one of the following prohibited characters: " +
+                        ";\\r\\n\\f\\v (" + value + ')');
             }
         }
         return value;

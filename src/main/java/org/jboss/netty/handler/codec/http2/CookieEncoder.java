@@ -26,6 +26,7 @@ import java.util.Date;
 import java.util.Set;
 import java.util.TreeSet;
 
+
 /**
  * Encodes {@link Cookie}s into an HTTP header value.  This encoder can encode
  * the HTTP cookie version 0, 1, and 2.
@@ -115,9 +116,9 @@ public class CookieEncoder {
             if (cookie.getMaxAge() >= 0) {
                 if (cookie.getVersion() == 0) {
                     addUnquoted(sb, CookieHeaderNames.EXPIRES,
-                            new CookieDateFormat().format(new Date(System
-                                    .currentTimeMillis() +
-                                    cookie.getMaxAge() * 1000L)));
+                            new CookieDateFormat().format(
+                                    new Date(System.currentTimeMillis() +
+                                             cookie.getMaxAge() * 1000L)));
                 } else {
                     add(sb, CookieHeaderNames.MAX_AGE, cookie.getMaxAge());
                 }
@@ -135,12 +136,15 @@ public class CookieEncoder {
                 if (cookie.getVersion() > 0) {
                     add(sb, CookieHeaderNames.DOMAIN, cookie.getDomain());
                 } else {
-                    addUnquoted(sb, CookieHeaderNames.DOMAIN, cookie
-                            .getDomain());
+                    addUnquoted(sb, CookieHeaderNames.DOMAIN, cookie.getDomain());
                 }
             }
             if (cookie.isSecure()) {
                 sb.append(CookieHeaderNames.SECURE);
+                sb.append((char) HttpCodecUtil.SEMICOLON);
+            }
+            if (cookie.isHttpOnly()) {
+                sb.append(CookieHeaderNames.HTTPONLY);
                 sb.append((char) HttpCodecUtil.SEMICOLON);
             }
             if (cookie.getVersion() >= 1) {
@@ -151,11 +155,10 @@ public class CookieEncoder {
                 add(sb, CookieHeaderNames.VERSION, 1);
 
                 if (cookie.getCommentUrl() != null) {
-                    addQuoted(sb, CookieHeaderNames.COMMENTURL, cookie
-                            .getCommentUrl());
+                    addQuoted(sb, CookieHeaderNames.COMMENTURL, cookie.getCommentUrl());
                 }
 
-                if (!cookie.getPorts().isEmpty()) {
+                if(!cookie.getPorts().isEmpty()) {
                     sb.append(CookieHeaderNames.PORT);
                     sb.append((char) HttpCodecUtil.EQUALS);
                     sb.append((char) HttpCodecUtil.DOUBLE_QUOTE);
@@ -163,8 +166,7 @@ public class CookieEncoder {
                         sb.append(port);
                         sb.append((char) HttpCodecUtil.COMMA);
                     }
-                    sb.setCharAt(sb.length() - 1,
-                            (char) HttpCodecUtil.DOUBLE_QUOTE);
+                    sb.setCharAt(sb.length() - 1, (char) HttpCodecUtil.DOUBLE_QUOTE);
                     sb.append((char) HttpCodecUtil.SEMICOLON);
                 }
                 if (cookie.isDiscard()) {
@@ -197,7 +199,7 @@ public class CookieEncoder {
             }
 
             if (cookie.getVersion() >= 1) {
-                if (!cookie.getPorts().isEmpty()) {
+                if(!cookie.getPorts().isEmpty()) {
                     sb.append('$');
                     sb.append(CookieHeaderNames.PORT);
                     sb.append((char) HttpCodecUtil.EQUALS);
@@ -206,8 +208,7 @@ public class CookieEncoder {
                         sb.append(port);
                         sb.append((char) HttpCodecUtil.COMMA);
                     }
-                    sb.setCharAt(sb.length() - 1,
-                            (char) HttpCodecUtil.DOUBLE_QUOTE);
+                    sb.setCharAt(sb.length() - 1, (char) HttpCodecUtil.DOUBLE_QUOTE);
                     sb.append((char) HttpCodecUtil.SEMICOLON);
                 }
             }
@@ -226,25 +227,10 @@ public class CookieEncoder {
         for (int i = 0; i < val.length(); i ++) {
             char c = val.charAt(i);
             switch (c) {
-            case '(':
-            case ')':
-            case '<':
-            case '>':
-            case '@':
-            case ',':
-            case ';':
-            case ':':
-            case '"':
-            case '/':
-            case '[':
-            case ']':
-            case '?':
-            case '=':
-            case '{':
-            case '}':
-            case ' ':
-            case '\t':
-            case '\\':
+            case '(': case ')': case '<': case '>': case '@': case ',':
+            case ';': case ':': case '"': case '/': case '[': case ']':
+            case '?': case '=': case '{': case '}': case ' ':
+            case '\t': case '\\':
                 addQuoted(sb, name, val);
                 return;
             }

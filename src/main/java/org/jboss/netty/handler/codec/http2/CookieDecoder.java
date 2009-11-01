@@ -52,8 +52,8 @@ import java.util.regex.Pattern;
  */
 public class CookieDecoder {
 
-    private final static Pattern PATTERN = Pattern
-            .compile("(?:\\s|[;,])*\\$*([^;=]+)(?:=(?:[\"']((?:\\\\.|[^\"])*)[\"']|([^;,]*)))?\\s*(?:[;,]+|$)");
+    private final static Pattern PATTERN =
+        Pattern.compile("(?:\\s|[;,])*\\$*([^;=]+)(?:=(?:[\"']((?:\\\\.|[^\"])*)[\"']|([^;,]*)))?\\s*(?:[;,]+|$)");
 
     private final static String COMMA = ",";
 
@@ -88,8 +88,7 @@ public class CookieDecoder {
             // An exceptional case:
             // 'Expires' attribute can contain a comma without surrounded with quotes.
             if (name.equalsIgnoreCase(CookieHeaderNames.EXPIRES) &&
-                    value.length() <= 3) {
-                // value contains comma, but not surrounded with quotes.
+                value.length() <= 9) { // Longest day of week is 'Wednesday'.
                 if (m.find(pos)) {
                     value = value + ", " + m.group(1);
                     pos = m.end();
@@ -139,6 +138,7 @@ public class CookieDecoder {
 
             boolean discard = false;
             boolean secure = false;
+            boolean httpOnly = false;
             String comment = null;
             String commentURL = null;
             String domain = null;
@@ -146,7 +146,7 @@ public class CookieDecoder {
             int maxAge = -1;
             List<Integer> ports = new ArrayList<Integer>(2);
 
-            for (int j = i + 1; j < names.size(); j ++, i ++) {
+            for (int j = i + 1; j < names.size(); j++, i++) {
                 name = names.get(j);
                 value = values.get(j);
 
@@ -154,6 +154,8 @@ public class CookieDecoder {
                     discard = true;
                 } else if (CookieHeaderNames.SECURE.equalsIgnoreCase(name)) {
                     secure = true;
+                } else if (CookieHeaderNames.HTTPONLY.equalsIgnoreCase(name)) {
+                   httpOnly = true;
                 } else if (CookieHeaderNames.COMMENT.equalsIgnoreCase(name)) {
                     comment = value;
                 } else if (CookieHeaderNames.COMMENTURL.equalsIgnoreCase(name)) {
@@ -164,14 +166,14 @@ public class CookieDecoder {
                     path = value;
                 } else if (CookieHeaderNames.EXPIRES.equalsIgnoreCase(name)) {
                     try {
-                        long maxAgeMillis = new CookieDateFormat().parse(value)
-                                .getTime() -
-                                System.currentTimeMillis();
+                        long maxAgeMillis =
+                            new CookieDateFormat().parse(value).getTime() -
+                            System.currentTimeMillis();
                         if (maxAgeMillis <= 0) {
                             maxAge = 0;
                         } else {
                             maxAge = (int) (maxAgeMillis / 1000) +
-                                    (maxAgeMillis % 1000 != 0? 1 : 0);
+                                     (maxAgeMillis % 1000 != 0? 1 : 0);
                         }
                     } catch (ParseException e) {
                         // Ignore.
@@ -199,6 +201,7 @@ public class CookieDecoder {
             c.setPath(path);
             c.setDomain(domain);
             c.setSecure(secure);
+            c.setHttpOnly(httpOnly);
             if (version > 0) {
                 c.setComment(comment);
             }

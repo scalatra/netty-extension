@@ -47,9 +47,7 @@ public class DefaultHttpMessage implements HttpMessage {
 
     private final HttpVersion version;
 
-    private final Map<String, List<String>> headers = new TreeMap<String, List<String>>(
-            CaseIgnoringComparator.INSTANCE);
-
+    private final Map<String, List<String>> headers = new TreeMap<String, List<String>>(CaseIgnoringComparator.INSTANCE);
     private ChannelBuffer content = ChannelBuffers.EMPTY_BUFFER;
 
     /**
@@ -65,9 +63,6 @@ public class DefaultHttpMessage implements HttpMessage {
     public void addHeader(final String name, final String value) {
         validateHeaderName(name);
         validateHeaderValue(value);
-        if (value == null) {
-            throw new NullPointerException("value is null");
-        }
         if (headers.get(name) == null) {
             headers.put(name, new ArrayList<String>(1));
         }
@@ -77,10 +72,6 @@ public class DefaultHttpMessage implements HttpMessage {
     public void setHeader(final String name, final String value) {
         validateHeaderName(name);
         validateHeaderValue(value);
-        if (value == null) {
-            throw new NullPointerException("value");
-        }
-
         List<String> values = new ArrayList<String>(1);
         values.add(value);
         headers.put(name, values);
@@ -132,19 +123,12 @@ public class DefaultHttpMessage implements HttpMessage {
 
             // Check prohibited characters.
             switch (c) {
-            case '=':
-            case ',':
-            case ';':
-            case ' ':
-            case ':':
-            case '\t':
-            case '\r':
-            case '\n':
-            case '\f':
+            case '=':  case ',':  case ';': case ' ': case ':':
+            case '\t': case '\r': case '\n': case '\f':
             case 0x0b: // Vertical tab
                 throw new IllegalArgumentException(
                         "name contains one of the following prohibited characters: " +
-                                "=,;: \\t\\r\\n\\v\\f: " + name);
+                        "=,;: \\t\\r\\n\\v\\f: " + name);
             }
         }
     }
@@ -153,18 +137,62 @@ public class DefaultHttpMessage implements HttpMessage {
         if (value == null) {
             throw new NullPointerException("value");
         }
+
+        // 0 - the previous character was neither CR nor LF
+        // 1 - the previous character was CR
+        // 2 - the previous character was LF
+        int state = 0;
+
         for (int i = 0; i < value.length(); i ++) {
             char c = value.charAt(i);
-            // Check prohibited characters.
+
+            // Check the absolutely prohibited characters.
             switch (c) {
-            case '\r':
-            case '\n':
             case '\f':
+                throw new IllegalArgumentException(
+                        "value contains a prohibited character '\\f': " + value);
             case 0x0b: // Vertical tab
                 throw new IllegalArgumentException(
-                        "value contains one of the following prohibited characters: " +
-                                "\\r\\n\\v\\f: " + value);
+                        "value contains a prohibited character '\\v': " + value);
             }
+
+            // Check the CRLF (HT | SP) pattern
+            switch (state) {
+            case 0:
+                switch (c) {
+                case '\r':
+                    state = 1;
+                    break;
+                case '\n':
+                    state = 2;
+                    break;
+                }
+                break;
+            case 1:
+                switch (c) {
+                case '\n':
+                    state = 2;
+                    break;
+                default:
+                    throw new IllegalArgumentException(
+                            "Only '\\n' is allowed after '\\r': " + value);
+                }
+                break;
+            case 2:
+                switch (c) {
+                case ' ': case '\t':
+                    state = 0;
+                    break;
+                default:
+                    throw new IllegalArgumentException(
+                            "Only ' ' and '\\t' are allowed after '\\n': " + value);
+                }
+            }
+        }
+
+        if (state != 0) {
+            throw new IllegalArgumentException(
+                    "value must not end with '\\r' or '\\n':" + value);
         }
     }
 
@@ -177,8 +205,7 @@ public class DefaultHttpMessage implements HttpMessage {
     }
 
     public long getContentLength(long defaultValue) {
-        List<String> contentLength = headers
-                .get(HttpHeaders.Names.CONTENT_LENGTH);
+        List<String> contentLength = headers.get(HttpHeaders.Names.CONTENT_LENGTH);
         if (contentLength != null && contentLength.size() > 0) {
             return Long.parseLong(contentLength.get(0));
         }
@@ -200,14 +227,12 @@ public class DefaultHttpMessage implements HttpMessage {
     }
 
     public boolean isKeepAlive() {
-        if (HttpHeaders.Values.CLOSE
-                .equalsIgnoreCase(getHeader(HttpHeaders.Names.CONNECTION))) {
+        if (HttpHeaders.Values.CLOSE.equalsIgnoreCase(getHeader(HttpHeaders.Names.CONNECTION))) {
             return false;
         }
 
         if (getProtocolVersion().equals(HttpVersion.HTTP_1_0) &&
-                !HttpHeaders.Values.KEEP_ALIVE
-                        .equalsIgnoreCase(getHeader(HttpHeaders.Names.CONNECTION))) {
+            !HttpHeaders.Values.KEEP_ALIVE.equalsIgnoreCase(getHeader(HttpHeaders.Names.CONNECTION))) {
             return false;
         }
         return true;
@@ -226,8 +251,7 @@ public class DefaultHttpMessage implements HttpMessage {
 
     public String getHeader(final String name) {
         List<String> header = headers.get(name);
-        return header != null && header.size() > 0? headers.get(name).get(0)
-                : null;
+        return header != null && header.size() > 0 ? headers.get(name).get(0) : null;
     }
 
     public List<String> getHeaders(final String name) {
