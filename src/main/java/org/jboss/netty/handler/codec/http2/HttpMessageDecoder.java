@@ -17,7 +17,6 @@ package org.jboss.netty.handler.codec.http2;
 
 import java.util.List;
 
-import org.jboss.netty.buffer.AggregateChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -228,17 +227,13 @@ public abstract class HttpMessageDecoder extends
         }
         case READ_VARIABLE_LENGTH_CONTENT: {
             if (content == null) {
-                // FIXME AggregateChannelBuffer
                 //content = ChannelBuffers.dynamicBuffer(channel.getConfig().getBufferFactory());
                 content = ChannelBuffers.EMPTY_BUFFER;
-                // END FIXME
             }
             //this will cause a replay error until the channel is closed where this will read what's left in the buffer
-            // FIXME AggregateChannelBuffer
             //content.writeBytes(buffer.readBytes(buffer.readableBytes()));
-            content = AggregateChannelBuffer.wrappedCheckedBuffer(content,
+            content = ChannelBuffers.wrappedBuffer(content,
                     buffer);
-            // END FIXME
             return reset();
         }
         case READ_VARIABLE_LENGTH_CONTENT_AS_CHUNKS: {
@@ -408,11 +403,9 @@ public abstract class HttpMessageDecoder extends
         if (content == null) {
             content = buffer.readBytes((int) length);
         } else {
-            // FIXME AggregateChannelBuffer
             //content.writeBytes(buffer.readBytes((int) length));
-            content = AggregateChannelBuffer.wrappedCheckedBuffer(content,
+            content = ChannelBuffers.wrappedBuffer(content,
                     buffer.readBytes((int) length));
-            // END FIXME AggregateChannelBuffer
         }
     }
 

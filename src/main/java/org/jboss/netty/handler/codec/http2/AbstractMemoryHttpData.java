@@ -30,7 +30,6 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
-import org.jboss.netty.buffer.AggregateChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 
@@ -102,7 +101,7 @@ public abstract class AbstractMemoryHttpData extends AbstractHttpData implements
             } else {
                 //this.channelBuffer = ChannelBuffers.wrappedBuffer(this.channelBuffer, buffer);
                 // less memory usage
-                channelBuffer = AggregateChannelBuffer.wrappedCheckedBuffer(
+                channelBuffer = ChannelBuffers.wrappedBuffer(
                         channelBuffer, buffer);
             }
         }

@@ -24,7 +24,6 @@ package org.jboss.netty.handler.codec.http2;
 
 import java.util.List;
 
-import org.jboss.netty.buffer.AggregateChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelHandler;
@@ -127,8 +126,8 @@ public class HttpChunkAggregator extends SimpleChannelUpstreamHandler {
 
             // FIXME AggregateChannelBuffer
             //content.writeBytes(chunk.getContent());
-            currentMessage.setContent(AggregateChannelBuffer
-                    .wrappedCheckedBuffer(content, chunk.getContent()));
+            currentMessage.setContent(ChannelBuffers
+                    .wrappedBuffer(content, chunk.getContent()));
             // END FIXME
             if (chunk.isLast()) {
                 this.currentMessage = null;

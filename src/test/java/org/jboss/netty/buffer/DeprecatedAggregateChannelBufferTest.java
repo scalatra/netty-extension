@@ -31,7 +31,7 @@ import static org.jboss.netty.buffer.ChannelBuffers.directBuffer;
 import static org.jboss.netty.buffer.ChannelBuffers.dynamicBuffer;
 import static org.jboss.netty.buffer.ChannelBuffers.hexDump;
 import static org.jboss.netty.buffer.ChannelBuffers.wrappedBuffer;
-import static org.jboss.netty.buffer.AggregateChannelBuffer.wrappedCheckedBuffer;
+import static org.jboss.netty.buffer.DeprecatedAggregateChannelBuffer.wrappedCheckedBuffer;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
@@ -53,7 +53,7 @@ import org.junit.runner.notification.Failure;
  * @author frederic bregier
  *
  */
-public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
+public class DeprecatedAggregateChannelBufferTest extends AbstractChannelBufferTest {
     private static final int CAPACITY2 = 4096; // Must be even
 
     private List<ChannelBuffer> buffers;
@@ -735,7 +735,7 @@ public class AggregateChannelBufferTest extends AbstractChannelBufferTest {
     }
 
     public static void main(String[] args) {
-        Result result = JUnitCore.runClasses(AggregateChannelBufferTest.class);
+        Result result = JUnitCore.runClasses(DeprecatedAggregateChannelBufferTest.class);
         if (result.wasSuccessful()) {
             long time = result.getRunTime();
             System.out.println("OK: "+time);

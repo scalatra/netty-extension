@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Random;
 
-import org.jboss.netty.buffer.AggregateChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.handler.stream.ChunkedInput;
@@ -764,7 +763,7 @@ public class HttpPostRequestEncoder implements ChunkedInput {
         if (currentBuffer == null) {
             currentBuffer = buffer;
         } else {
-            currentBuffer = AggregateChannelBuffer.wrappedCheckedBuffer(currentBuffer,
+            currentBuffer = ChannelBuffers.wrappedBuffer(currentBuffer,
                 buffer);
         }
         if (currentBuffer.readableBytes() < HttpPostBodyUtil.chunkSize) {
@@ -796,12 +795,12 @@ public class HttpPostRequestEncoder implements ChunkedInput {
             buffer = ChannelBuffers.wrappedBuffer(key.getBytes());
             isKey = false;
             if (currentBuffer == null) {
-                currentBuffer = AggregateChannelBuffer.wrappedCheckedBuffer(
+                currentBuffer = ChannelBuffers.wrappedBuffer(
                         buffer, ChannelBuffers.wrappedBuffer("=".getBytes()));
                 //continue
                 size -= (buffer.readableBytes()+1);
             } else {
-                currentBuffer = AggregateChannelBuffer.wrappedCheckedBuffer(currentBuffer,
+                currentBuffer = ChannelBuffers.wrappedBuffer(currentBuffer,
                     buffer, ChannelBuffers.wrappedBuffer("=".getBytes()));
                 //continue
                 size -= (buffer.readableBytes()+1);
@@ -831,7 +830,7 @@ public class HttpPostRequestEncoder implements ChunkedInput {
                 currentBuffer = delimiter;
             } else {
                 if (delimiter != null) {
-                    currentBuffer = AggregateChannelBuffer.wrappedCheckedBuffer(currentBuffer,
+                    currentBuffer = ChannelBuffers.wrappedBuffer(currentBuffer,
                         delimiter);
                 }
             }
@@ -843,17 +842,17 @@ public class HttpPostRequestEncoder implements ChunkedInput {
         }
         if (currentBuffer == null) {
             if (delimiter != null) {
-                currentBuffer = AggregateChannelBuffer.wrappedCheckedBuffer(buffer,
+                currentBuffer = ChannelBuffers.wrappedBuffer(buffer,
                     delimiter);
             } else {
                 currentBuffer = buffer;
             }
         } else {
             if (delimiter != null) {
-                currentBuffer = AggregateChannelBuffer.wrappedCheckedBuffer(currentBuffer,
+                currentBuffer = ChannelBuffers.wrappedBuffer(currentBuffer,
                     buffer, delimiter);
             } else {
-                currentBuffer = AggregateChannelBuffer.wrappedCheckedBuffer(currentBuffer,
+                currentBuffer = ChannelBuffers.wrappedBuffer(currentBuffer,
                         buffer);
             }
         }

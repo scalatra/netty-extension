@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-import org.jboss.netty.buffer.AggregateChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.handler.codec.http2.HttpPostBodyUtil.TransferEncodingMechanism;
@@ -355,9 +354,7 @@ public class HttpPostRequestDecoder {
         if (undecodedChunk == null) {
             undecodedChunk = chunked;
         } else {
-            //undecodedChunk = ChannelBuffers.wrappedBuffer(undecodedChunk, chunk.getContent());
-            // less memory usage
-            undecodedChunk = AggregateChannelBuffer.wrappedCheckedBuffer(
+            undecodedChunk = ChannelBuffers.wrappedBuffer(
                     undecodedChunk, chunked);
         }
         if (chunk.isLast()) {

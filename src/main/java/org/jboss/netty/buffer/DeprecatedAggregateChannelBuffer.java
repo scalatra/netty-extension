@@ -36,7 +36,7 @@ import java.util.List;
 
 /**
  * Almost same as {@link CompositeChannelBuffer} except that empty buffers will not be copied,
- * it checks also for buffers that are already AggregateChannelBuffer.
+ * it checks also for buffers that are already DeprecatedAggregateChannelBuffer.
  *
  * The idea is to limit the number of stored empty ChannelBuffer when constructor is called.
  * Except that, everything is similar to CompositeChannelBuffer.
@@ -44,7 +44,7 @@ import java.util.List;
  * @author frederic bregier
  *
  */
-public class AggregateChannelBuffer extends AbstractChannelBuffer {
+public class DeprecatedAggregateChannelBuffer extends AbstractChannelBuffer {
     private ChannelBuffer[] slices;
 
     private ByteOrder order;
@@ -74,7 +74,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
         default:
             for (ChannelBuffer b: buffers) {
                 if (b.readable()) {
-                    return new AggregateChannelBuffer(buffers);
+                    return new DeprecatedAggregateChannelBuffer(buffers);
                 }
             }
         }
@@ -101,7 +101,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
      *
      * @param buffers
      */
-    public AggregateChannelBuffer(ChannelBuffer... buffers) {
+    public DeprecatedAggregateChannelBuffer(ChannelBuffer... buffers) {
         if (buffers.length == 0) {
             throw new IllegalArgumentException("buffers should not be empty.");
         }
@@ -112,8 +112,8 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
         for (ChannelBuffer buffer: buffers) {
             if (buffer.readableBytes() > 0) {
                 expectedEndianness = buffer.order();
-                if (buffer instanceof AggregateChannelBuffer) {
-                    AggregateChannelBuffer aggregate = (AggregateChannelBuffer) buffer;
+                if (buffer instanceof DeprecatedAggregateChannelBuffer) {
+                    DeprecatedAggregateChannelBuffer aggregate = (DeprecatedAggregateChannelBuffer) buffer;
                     ArrayList<ChannelBuffer> subList = aggregate.getBufferList(
                             aggregate.readerIndex(), aggregate.readableBytes());
                     bufferList.addAll(subList);
@@ -231,7 +231,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
      * Use by duplicate method
      * @param buffer the buffer to duplicate
      */
-    private AggregateChannelBuffer(AggregateChannelBuffer buffer) {
+    private DeprecatedAggregateChannelBuffer(DeprecatedAggregateChannelBuffer buffer) {
         order = buffer.order;
         slices = buffer.slices.clone();
         indices = buffer.indices.clone();
@@ -310,10 +310,10 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
                 // Try to do better than using Sliced here
                 // copy all slices from index to length
                 ArrayList<ChannelBuffer> listBuffer = this.getBufferList(0, length);
-                // create the AggregateChannelBuffer
+                // create the DeprecatedAggregateChannelBuffer
                 ChannelBuffer [] buffers = new ChannelBuffer[listBuffer.size()];
                 listBuffer.toArray(buffers);
-                AggregateChannelBuffer newbuf = new AggregateChannelBuffer(buffers);
+                DeprecatedAggregateChannelBuffer newbuf = new DeprecatedAggregateChannelBuffer(buffers);
                 // make the correct writerIndex
                 newbuf.readerIndex(0);// FIX
                 newbuf.writerIndex(length);
@@ -327,10 +327,10 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
             // Try to do better than using Sliced here
             // copy all slices from index to length
             ArrayList<ChannelBuffer> listBuffer = this.getBufferList(index, length);
-            // create the AggregateChannelBuffer
+            // create the DeprecatedAggregateChannelBuffer
             ChannelBuffer [] buffers = new ChannelBuffer[listBuffer.size()];
             listBuffer.toArray(buffers);
-            AggregateChannelBuffer newbuf = new AggregateChannelBuffer(buffers);
+            DeprecatedAggregateChannelBuffer newbuf = new DeprecatedAggregateChannelBuffer(buffers);
             // make the correct writerIndex
             newbuf.writerIndex(length);
             return newbuf;
@@ -355,9 +355,9 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
             }
             ArrayList<ChannelBuffer> bufferAddedList = new ArrayList<ChannelBuffer>(
                     1);
-            if (src instanceof AggregateChannelBuffer) {
+            if (src instanceof DeprecatedAggregateChannelBuffer) {
                 // first clean it
-                AggregateChannelBuffer subbuf = (AggregateChannelBuffer) src;
+                DeprecatedAggregateChannelBuffer subbuf = (DeprecatedAggregateChannelBuffer) src;
                 ArrayList<ChannelBuffer> subList = subbuf.getBufferList(
                         srcIndex, length);
                 bufferAddedList.addAll(subList);
@@ -732,7 +732,7 @@ public class AggregateChannelBuffer extends AbstractChannelBuffer {
     }
 
     public ChannelBuffer duplicate() {
-        ChannelBuffer duplicate = new AggregateChannelBuffer(this);
+        ChannelBuffer duplicate = new DeprecatedAggregateChannelBuffer(this);
         duplicate.setIndex(readerIndex(), writerIndex());
         return duplicate;
     }
