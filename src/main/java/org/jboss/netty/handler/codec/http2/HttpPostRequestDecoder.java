@@ -33,7 +33,7 @@ import java.util.TreeMap;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.handler.codec.http2.HttpPostBodyUtil.TransferEncodingMechanism;
-import org.jboss.netty.util.internal.CaseIgnoringComparator;
+
 
 /**
  * This decoder will decode Body and can handle POST BODY.

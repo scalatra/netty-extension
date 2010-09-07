@@ -23,9 +23,9 @@ import java.util.concurrent.ConcurrentMap;
 import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipelineCoverage;
 import org.jboss.netty.channel.ChannelState;
 import org.jboss.netty.channel.ChannelStateEvent;
+import org.jboss.netty.channel.ChannelHandler.Sharable;
 
 /**
  * Handler that block any new connection if there are already a currently active
@@ -39,7 +39,7 @@ import org.jboss.netty.channel.ChannelStateEvent;
  * @author frederic bregier
  *
  */
-@ChannelPipelineCoverage("all")
+@Sharable
 public class OneIpFilterHandler extends IpFilteringHandler {
     /**
      * HashMap of current remote connected InetAddress

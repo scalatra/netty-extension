@@ -18,7 +18,6 @@ package org.jboss.netty.handler.traffic;
 import java.util.concurrent.Executor;
 
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipelineCoverage;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.handler.execution.ExecutionHandler;
@@ -62,7 +61,6 @@ import org.jboss.netty.util.ObjectSizeEstimator;
  * @author The Netty Project (netty-dev@lists.jboss.org)
  * @author Frederic Bregier
  */
-@ChannelPipelineCoverage("one")
 public class ChannelTrafficShapingHandler extends AbstractTrafficShapingHandler {
 
     /**

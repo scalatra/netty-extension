@@ -25,7 +25,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelPipelineCoverage;
+import org.jboss.netty.channel.ChannelHandler.Sharable;
 
 /**
  * Implementation of Filter of IP based on ALLOW and DENY netmask (standard notations or CIDR notations).<br>
@@ -58,7 +58,7 @@ import org.jboss.netty.channel.ChannelPipelineCoverage;
  * @author frederic bregier
  *
  */
-@ChannelPipelineCoverage("all")
+@Sharable
 public class IpFilterRuleHandler extends IpFilteringHandler {
     /**
      * List of {@link IpFilterRule}

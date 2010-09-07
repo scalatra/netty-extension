@@ -33,7 +33,6 @@ import java.util.TreeSet;
 
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
-import org.jboss.netty.util.internal.CaseIgnoringComparator;
 
 /**
  * The default {@link HttpMessage} implementation.

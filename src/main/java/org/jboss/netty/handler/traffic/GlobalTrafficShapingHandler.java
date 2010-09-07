@@ -17,7 +17,7 @@ package org.jboss.netty.handler.traffic;
 
 import java.util.concurrent.Executor;
 
-import org.jboss.netty.channel.ChannelPipelineCoverage;
+import org.jboss.netty.channel.ChannelHandler.Sharable;
 import org.jboss.netty.handler.execution.ExecutionHandler;
 import org.jboss.netty.handler.execution.MemoryAwareThreadPoolExecutor;
 import org.jboss.netty.handler.execution.OrderedMemoryAwareThreadPoolExecutor;
@@ -62,7 +62,7 @@ import org.jboss.netty.util.ObjectSizeEstimator;
  * @author Frederic Bregier
  * @version $Rev$, $Date$
  */
-@ChannelPipelineCoverage("all")
+@Sharable
 public class GlobalTrafficShapingHandler extends AbstractTrafficShapingHandler {
     /**
      * Create the global TrafficCounter

@@ -999,4 +999,12 @@ public class HttpPostRequestEncoder implements ChunkedInput {
             super(arg0, arg1);
         }
     }
+
+    /* (non-Javadoc)
+     * @see org.jboss.netty.handler.stream.ChunkedInput#isEndOfInput()
+     */
+    @Override
+    public boolean isEndOfInput() throws Exception {
+        return isLastChunkSent;
+    }
 }
