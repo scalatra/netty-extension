@@ -218,7 +218,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 Channels.close(e.getChannel());
                 return;
             }
-            responseContent.append("o");
+            responseContent.append('o');
             // example of reading chunk by chunk (minimize memory usage due to Factory)
             readHttpDataChunkByChunk(e.getChannel());
             // example of reading only if at the end

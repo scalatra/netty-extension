@@ -163,9 +163,11 @@ public class CIDR6 extends CIDR {
         } else {
             // copy the address into a 16 byte array, zero-filled.
             int p = 16 - b.length;
-            for (int i = 0; i < b.length; i ++) {
+            System.arraycopy(b, 0, a, p, b.length);
+            /* equivalent to
+             for (int i = 0; i < b.length; i ++) {
                 a[p + i] = b[i];
-            }
+            }*/
         }
         return InetAddress.getByAddress(a);
     }
