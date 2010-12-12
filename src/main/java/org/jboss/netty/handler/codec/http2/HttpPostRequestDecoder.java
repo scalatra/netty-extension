@@ -1016,8 +1016,8 @@ public class HttpPostRequestDecoder {
     }
 
     /**
-     * Remove the given FileUpload from the list of FileUploads to clean
-     * @param fileUpload
+     * Remove the given data from the list of data to clean
+     * @param data
      */
     public void removeHttpDataFromClean(InterfaceHttpData data) {
         factory.removeHttpDataFromClean(request, data);

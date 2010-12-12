@@ -82,7 +82,6 @@ public interface HttpDataFactory {
     /**
      * Remove all InterfaceHttpData from virtual File storage from clean list for all requests
      * 
-     * @param request associated request
      */
     public void cleanAllHttpDatas();
 }
