@@ -15,6 +15,7 @@
  */
 package org.jboss.netty.handler.codec.http2;
 
+import java.io.File;
 import java.nio.charset.Charset;
 
 /**
@@ -148,7 +149,8 @@ public class DiskFileUpload extends AbstractDiskHttpData implements FileUpload {
 
     @Override
     protected String getDiskFilename() {
-        return filename;
+        File file = new File(filename);
+        return file.getName();
     }
 
     @Override

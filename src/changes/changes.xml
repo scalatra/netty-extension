@@ -5,6 +5,11 @@
 		<author email="fredbregier@free.fr">Frederic Bregier</author>
 	</properties>
 	<body>
+		<release version="1.1.8" date="2011-05-28" description="Fix HTTP Codec And IpFilter">
+			<action dev="Frederic Bregier" type="fix">Fix HTTP Codec in NPE when parsing Post Request</action>
+			<action dev="Frederic Bregier" type="fix">Fix HTTP Codec in File Upload when IE used on localhost</action>
+			<action dev="Frederic Bregier" type="fix">Fix IpFilter on equal method</action>
+		</release>
 		<release version="1.1.5" date="2009-12-03" description="Fix HTTP Codec in buffer handling in PostRequestDecoder">
 			<action dev="Frederic Bregier" type="fix">Fix HTTP Codec in buffer handling in PostRequestDecoder</action>
 		</release>

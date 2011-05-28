@@ -127,7 +127,17 @@ public abstract class CIDR implements Comparable<CIDR> {
         }
         return newCIDR(addr, mask);
     }
-
+    /* (non-Javadoc)
+     * @see java.lang.Object#equals(java.lang.Object)
+     */
+    @Override
+    public boolean equals(Object arg0) {
+        if (!(arg0 instanceof CIDR)) {
+            return false;
+        }
+        return (this.compareTo((CIDR) arg0) == 0);
+    }
+    
     /** @return the baseAddress of the CIDR block. */
     public InetAddress getBaseAddress() {
         return baseAddress;
