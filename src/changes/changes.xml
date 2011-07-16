@@ -5,6 +5,9 @@
 		<author email="fredbregier@free.fr">Frederic Bregier</author>
 	</properties>
 	<body>
+		<release version="1.1.9" date="2011-07-15" description="Fix HTTP Codec">
+			<action dev="Frederic Bregier" type="fix">Fix HTTP Codec in NPE when parsing Post Request in non chunked mode</action>
+		</release>
 		<release version="1.1.8" date="2011-05-28" description="Fix HTTP Codec And IpFilter">
 			<action dev="Frederic Bregier" type="fix">Fix HTTP Codec in NPE when parsing Post Request</action>
 			<action dev="Frederic Bregier" type="fix">Fix HTTP Codec in File Upload when IE used on localhost</action>
