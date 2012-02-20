@@ -3,7 +3,7 @@
   <groupId>NettyExtension</groupId>
   <artifactId>NettyExtension</artifactId>
   <name>NettyExtension</name>
-  <version>1.1.10</version>
+  <version>1.1.11</version>
   <description>Netty Extension (handlers and others)</description>
   <url>http://openr66.free.fr/NettyExtension</url>
   <inceptionYear>2009</inceptionYear>

@@ -111,7 +111,7 @@ public abstract class AbstractTrafficShapingHandler extends
      * It will be true only once when the releaseExternalRessources is called
      * to prevent waiting when shutdown.
      */
-    private AtomicBoolean release = new AtomicBoolean(false);
+    private final AtomicBoolean release = new AtomicBoolean(false);
 
     /**
     * @param newObjectSizeEstimator
@@ -340,12 +340,12 @@ public abstract class AbstractTrafficShapingHandler extends
         /**
          * Associated ChannelHandlerContext
          */
-        private ChannelHandlerContext ctx = null;
+        private final ChannelHandlerContext ctx;
 
         /**
          * Time to wait before clearing the channel
          */
-        private long timeToWait = 0;
+        private final long timeToWait;
 
         /**
          * @param ctx
@@ -393,8 +393,7 @@ public abstract class AbstractTrafficShapingHandler extends
             // Time is too short, so just lets continue
             return 0;
         }
-        long wait = bytes * 1000 / limit - interval;
-        return wait;
+        return bytes * 1000 / limit - interval;
     }
 
     @Override

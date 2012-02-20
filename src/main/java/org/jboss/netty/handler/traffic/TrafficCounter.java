@@ -101,12 +101,12 @@ public class TrafficCounter {
     /**
      * The associated TrafficShapingHandler
      */
-    private AbstractTrafficShapingHandler trafficShapingHandler = null;
+    private final AbstractTrafficShapingHandler trafficShapingHandler;
 
     /**
      * Default Executor
      */
-    private Executor executor = null;
+    private final Executor executor;
 
     /**
      * Is Monitor active
@@ -150,7 +150,7 @@ public class TrafficCounter {
         public void run() {
             try {
                 Thread.currentThread().setName(name);
-                for (; monitorActive.get();) {
+                while (monitorActive.get()) {
                     long check = counter.checkInterval.get();
                     if (check > 0) {
                         Thread.sleep(check);
